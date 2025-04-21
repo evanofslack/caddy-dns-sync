@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/dgraph-io/badger/v3"
-	"github.com/evanofslack/caddy-dns-sync/source"
 )
 
 const domainPrefix = "domain:"
@@ -20,7 +19,7 @@ type badgerManager struct {
 	db *badger.DB
 }
 
-func NewBadgerManager(path string) (Manager, error) {
+func New(path string) (Manager, error) {
 	opts := badger.DefaultOptions(path)
 	opts.Logger = nil // Disable Badger's internal logger
 
@@ -102,32 +101,6 @@ func (m *badgerManager) SaveState(state State) error {
 		}
 	}
 	return txn.Commit()
-}
-
-func (m *badgerManager) CompareStates(current, previous State) StateChanges {
-	changes := StateChanges{
-		Added:   []source.DomainConfig{},
-		Removed: []string{},
-	}
-
-	// Find added or modified domains
-	for host, domainCfg := range current.Domains {
-		if prev, exists := previous.Domains[host]; !exists || prev.ServerName != domainCfg.ServerName {
-			changes.Added = append(changes.Added, source.DomainConfig{
-				Host:       host,
-				ServerName: domainCfg.ServerName,
-			})
-		}
-	}
-
-	// Find removed domains
-	for host := range previous.Domains {
-		if _, exists := current.Domains[host]; !exists {
-			changes.Removed = append(changes.Removed, host)
-		}
-	}
-
-	return changes
 }
 
 func (m *badgerManager) Close() error {

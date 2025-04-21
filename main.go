@@ -9,10 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/evanofslack/caddy-dns-sync/source/caddy"
 	"github.com/evanofslack/caddy-dns-sync/config"
 	"github.com/evanofslack/caddy-dns-sync/provider/cloudflare"
 	"github.com/evanofslack/caddy-dns-sync/reconcile"
+	"github.com/evanofslack/caddy-dns-sync/source/caddy"
 	"github.com/evanofslack/caddy-dns-sync/state"
 )
 
@@ -29,22 +29,22 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	stateManager, err := state.NewBadgerManager(cfg.StatePath)
+	stateManager, err := state.New(cfg.StatePath)
 	if err != nil {
 		slog.Error("Failed to initialize state manager", "error", err)
 		os.Exit(1)
 	}
 	defer stateManager.Close()
 
-	caddyClient := caddy.New(cfg.CaddyConfig.AdminURL)
+	caddyClient := caddy.New(cfg.Caddy.AdminURL)
 
-	cf, err := cloudflare.New(cfg.DNSConfig)
+	cf, err := cloudflare.New(cfg.DNS)
 	if err != nil {
 		slog.Error("Failed to initialize DNS provider", "error", err)
 		os.Exit(1)
 	}
 
-	engine := reconcile.NewEngine(stateManager, cf, cfg.ReconcileConfig)
+	engine := reconcile.NewEngine(stateManager, cf, cfg)
 
 	slog.Info("Starting caddy-dns-sync service")
 

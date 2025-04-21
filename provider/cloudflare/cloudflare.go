@@ -17,15 +17,15 @@ type CloudflareProvider struct {
 	cf       *cloudflare.Provider
 }
 
-func New(cfg config.DNSConfig) (*CloudflareProvider, error) {
+func New(cfg config.DNS) (*CloudflareProvider, error) {
 	p := &CloudflareProvider{
 		provider: cfg.Provider,
 		ttl:      cfg.TTL,
 	}
 
-	token, ok := cfg.Credentials["api_token"]
-	if !ok {
-		return nil, fmt.Errorf("cloudflare api_token not found in credentials")
+	token := cfg.Token
+	if token == "" {
+		return nil, fmt.Errorf("cloudflare api token empty")
 	}
 
 	p.cf = &cloudflare.Provider{

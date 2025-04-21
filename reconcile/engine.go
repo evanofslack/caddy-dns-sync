@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/evanofslack/caddy-dns-sync/source"
 	"github.com/evanofslack/caddy-dns-sync/config"
 	"github.com/evanofslack/caddy-dns-sync/provider"
+	"github.com/evanofslack/caddy-dns-sync/source"
 	"github.com/evanofslack/caddy-dns-sync/state"
 )
 
@@ -23,15 +23,15 @@ type engine struct {
 	protected    map[string]bool
 }
 
-func NewEngine(sm state.Manager, dp provider.Provider, cfg config.ReconcileConfig) Engine {
+func NewEngine(sm state.Manager, dp provider.Provider, cfg *config.Config) Engine {
 	protected := make(map[string]bool)
-	for _, r := range cfg.ProtectedRecords {
+	for _, r := range cfg.Reconcile.ProtectedRecords {
 		protected[r] = true
 	}
 	return &engine{
 		stateManager: sm,
 		dnsProvider:  dp,
-		dryRun:       cfg.DryRun,
+		dryRun:       cfg.Reconcile.DryRun,
 		protected:    protected,
 	}
 }
@@ -102,7 +102,6 @@ func (e *engine) compareStates(current, previous state.State) state.StateChanges
 			changes.Removed = append(changes.Removed, host)
 		}
 	}
-
 	return changes
 }
 
@@ -167,7 +166,6 @@ func (e *engine) generatePlan(changes state.StateChanges) (Plan, error) {
 			}
 		}
 	}
-
 	return plan, nil
 }
 
@@ -183,7 +181,6 @@ func (e *engine) executePlan(plan Plan) (Results, error) {
 
 		results.Deleted = make([]provider.Record, len(plan.Delete))
 		copy(results.Deleted, plan.Delete)
-
 		return results, nil
 	}
 
