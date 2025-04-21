@@ -2,6 +2,7 @@ package caddy
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -17,8 +18,8 @@ type MockHttpClient struct {
 	GetFunc func(url string) (*http.Response, error)
 }
 
-func (m *MockHttpClient) Get(url string) (*http.Response, error) {
-	return m.GetFunc(url)
+func (m *MockHttpClient) Do(req *http.Request) (*http.Response, error) {
+	return m.GetFunc(req.URL.Host)
 }
 
 func TestDomains(t *testing.T) {
@@ -146,7 +147,7 @@ func TestDomains(t *testing.T) {
 												"handler": "subroute",
 												"routes": []map[string]interface{}{{
 													"handle": []map[string]interface{}{{
-														"handler": "reverse_proxy",
+														"handler":   "reverse_proxy",
 														"upstreams": []map[string]interface{}{{"dial": "1.1.1.1:443"}},
 													}},
 												}},
@@ -169,6 +170,7 @@ func TestDomains(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
 			// Create a mock HTTP client
 			mockClient := &MockHttpClient{
 				GetFunc: func(url string) (*http.Response, error) {
@@ -204,7 +206,7 @@ func TestDomains(t *testing.T) {
 			}
 
 			// Call the method being tested
-			result, err := c.Domains()
+			result, err := c.Domains(ctx)
 
 			// Check for expected error
 			if tt.expectError && err == nil {

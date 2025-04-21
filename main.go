@@ -69,7 +69,7 @@ func runSyncLoop(ctx context.Context, wg *sync.WaitGroup, client caddy.Client, e
 	defer ticker.Stop()
 
 	for {
-		if err := performSync(client, engine); err != nil {
+		if err := performSync(ctx, client, engine); err != nil {
 			slog.Error("Sync operation failed", "error", err)
 		}
 
@@ -83,16 +83,16 @@ func runSyncLoop(ctx context.Context, wg *sync.WaitGroup, client caddy.Client, e
 	}
 }
 
-func performSync(client caddy.Client, engine reconcile.Engine) error {
+func performSync(ctx context.Context, client caddy.Client, engine reconcile.Engine) error {
 	slog.Info("Starting sync operation")
 
-	domains, err := client.Domains()
+	domains, err := client.Domains(ctx)
 	if err != nil {
 		return err
 	}
 
 	slog.Info("Reconciling domains", "count", len(domains))
-	results, err := engine.Reconcile(domains)
+	results, err := engine.Reconcile(ctx, domains)
 	if err != nil {
 		return err
 	}

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 	"time"
+	"context"
 
 	"github.com/evanofslack/caddy-dns-sync/config"
 	"github.com/evanofslack/caddy-dns-sync/provider"
@@ -16,21 +17,33 @@ type MockStateManager struct {
 	err   error
 }
 
-func (m *MockStateManager) LoadState() (state.State, error) { return m.state, m.err }
-func (m *MockStateManager) SaveState(s state.State) error   { m.state = s; return m.err }
-func (m *MockStateManager) Close() error                    { return nil }
+func (m *MockStateManager) LoadState(ctx context.Context) (state.State, error) { return m.state, m.err }
+func (m *MockStateManager) SaveState(ctx context.Context, s state.State) error {
+	m.state = s
+	return m.err
+}
+func (m *MockStateManager) Close() error { return nil }
 
 type MockProvider struct {
 	records map[string][]provider.Record
 	err     error
 }
 
-func (m *MockProvider) GetRecords(zone string) ([]provider.Record, error) {
+func (m *MockProvider) GetRecords(ctx context.Context, zone string) ([]provider.Record, error) {
 	return m.records[zone], m.err
 }
-func (m *MockProvider) CreateRecord(zone string, r provider.Record) error { return m.err }
-func (m *MockProvider) UpdateRecord(zone string, r provider.Record) error { return m.err }
-func (m *MockProvider) DeleteRecord(zone string, r provider.Record) error { return m.err }
+
+func (m *MockProvider) CreateRecord(ctx context.Context, zone string, r provider.Record) error {
+	return m.err
+}
+
+func (m *MockProvider) UpdateRecord(ctx context.Context, zone string, r provider.Record) error {
+	return m.err
+}
+
+func (m *MockProvider) DeleteRecord(ctx context.Context, zone string, r provider.Record) error {
+	return m.err
+}
 
 func TestEngine(t *testing.T) {
 	now := time.Now().Unix()
@@ -182,6 +195,7 @@ func TestEngine(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		ctx := context.Background()
 		t.Run(tt.name, func(t *testing.T) {
 			stateManager := &MockStateManager{
 				state: tt.initialState,
@@ -194,7 +208,7 @@ func TestEngine(t *testing.T) {
 			}
 
 			engine := NewEngine(stateManager, provider, tt.config)
-			results, err := engine.Reconcile(tt.currentDomains)
+			results, err := engine.Reconcile(ctx, tt.currentDomains)
 
 			if tt.expectError && err == nil {
 				t.Fatal("Expected error but got none")

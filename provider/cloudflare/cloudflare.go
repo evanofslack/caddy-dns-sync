@@ -34,8 +34,7 @@ func New(cfg config.DNS) (*CloudflareProvider, error) {
 	return p, nil
 }
 
-func (p *CloudflareProvider) GetRecords(zone string) ([]provider.Record, error) {
-	ctx := context.Background()
+func (p *CloudflareProvider) GetRecords(ctx context.Context, zone string) ([]provider.Record, error) {
 	slog.Info("Getting DNS records", "zone", zone)
 
 	records, err := p.cf.GetRecords(ctx, zone)
@@ -50,8 +49,7 @@ func (p *CloudflareProvider) GetRecords(zone string) ([]provider.Record, error) 
 	return result, nil
 }
 
-func (p *CloudflareProvider) CreateRecord(zone string, record provider.Record) error {
-	ctx := context.Background()
+func (p *CloudflareProvider) CreateRecord(ctx context.Context, zone string, record provider.Record) error {
 	slog.Info("Creating DNS record", "zone", zone, "name", record.Name, "type", record.Type, "data", record.Data)
 
 	r, err := provider.ToLibdns(record)
@@ -69,8 +67,7 @@ func (p *CloudflareProvider) CreateRecord(zone string, record provider.Record) e
 	}
 }
 
-func (p *CloudflareProvider) UpdateRecord(zone string, record provider.Record) error {
-	ctx := context.Background()
+func (p *CloudflareProvider) UpdateRecord(ctx context.Context, zone string, record provider.Record) error {
 	slog.Info("Updating DNS record", "zone", zone, "name", record.Name, "type", record.Type, "data", record.Data)
 
 	r, err := provider.ToLibdns(record)
@@ -88,8 +85,7 @@ func (p *CloudflareProvider) UpdateRecord(zone string, record provider.Record) e
 	}
 }
 
-func (p *CloudflareProvider) DeleteRecord(zone string, record provider.Record) error {
-	ctx := context.Background()
+func (p *CloudflareProvider) DeleteRecord(ctx context.Context, zone string, record provider.Record) error {
 	slog.Info("Deleting DNS record", "zone", zone, "name", record.Name)
 
 	r, err := provider.ToLibdns(record)

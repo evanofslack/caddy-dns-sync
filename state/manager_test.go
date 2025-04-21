@@ -1,6 +1,7 @@
 package state
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -140,11 +141,12 @@ func TestBadgerManager(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := manager.SaveState(tt.stateToSet); err != nil {
+			ctx := context.Background()
+			if err := manager.SaveState(ctx, tt.stateToSet); err != nil {
 				t.Fatalf("SaveState failed: %v", err)
 			}
 
-			loaded, err := manager.LoadState()
+			loaded, err := manager.LoadState(ctx)
 			if err != nil {
 				t.Fatalf("LoadState failed: %v", err)
 			}
@@ -187,7 +189,9 @@ func TestBadgerManagerDirect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to commit: %v", err)
 	}
-	db.Close()
+    if err := db.Close(); err != nil {
+        t.Fatal(err)
+    }
 
 	// Now open with manager and test
 	manager, err := New(dbPath)
@@ -196,7 +200,8 @@ func TestBadgerManagerDirect(t *testing.T) {
 	}
 	defer manager.Close()
 
-	state, err := manager.LoadState()
+	ctx := context.Background()
+	state, err := manager.LoadState(ctx)
 	if err != nil {
 		t.Fatalf("LoadState failed: %v", err)
 	}

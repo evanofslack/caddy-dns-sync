@@ -5,16 +5,17 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"context"
 
 	"github.com/evanofslack/caddy-dns-sync/source"
 )
 
 type Client interface {
-	Domains() ([]source.DomainConfig, error)
+	Domains(ctx context.Context) ([]source.DomainConfig, error)
 }
 
 type Httper interface {
-	Get(url string) (*http.Response, error)
+	Do(req *http.Request) (*http.Response, error)
 }
 
 type client struct {
@@ -29,9 +30,9 @@ func New(adminURL string) Client {
 	}
 }
 
-func (c *client) Domains() ([]source.DomainConfig, error) {
+func (c *client) Domains(ctx context.Context) ([]source.DomainConfig, error) {
 	domains := []source.DomainConfig{}
-	config, err := c.getConfiguration()
+	config, err := c.getConfiguration(ctx)
 	if err != nil {
 		return domains, err
 	}
@@ -42,8 +43,12 @@ func (c *client) Domains() ([]source.DomainConfig, error) {
 	return domains, nil
 }
 
-func (c *client) getConfiguration() (Config, error) {
-	resp, err := c.http.Get(c.adminURL + "/config/")
+func (c *client) getConfiguration(ctx context.Context) (Config, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", c.adminURL+"/config/", nil)
+	if err != nil {
+		return Config{}, err
+	}
+	resp, err := c.http.Do(req)
 	if err != nil {
 		return Config{}, err
 	}

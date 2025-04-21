@@ -4,15 +4,16 @@ import (
 	"fmt"
 	"net/netip"
 	"time"
+    "context"
 
 	"github.com/libdns/libdns"
 )
 
 type Provider interface {
-	GetRecords(zone string) ([]Record, error)
-	CreateRecord(zone string, record Record) error
-	UpdateRecord(zone string, record Record) error
-	DeleteRecord(zone string, record Record) error
+	GetRecords(ctx context.Context, zone string) ([]Record, error)
+	CreateRecord(ctx context.Context, zone string, record Record) error 
+	UpdateRecord(ctx context.Context, zone string, record Record) error
+	DeleteRecord(ctx context.Context, zone string, record Record) error
 }
 
 type Record struct {

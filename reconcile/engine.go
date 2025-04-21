@@ -6,6 +6,7 @@ import (
 	"net"
 	"strings"
 	"time"
+	"context"
 
 	"github.com/evanofslack/caddy-dns-sync/config"
 	"github.com/evanofslack/caddy-dns-sync/provider"
@@ -14,7 +15,7 @@ import (
 )
 
 type Engine interface {
-	Reconcile(domains []source.DomainConfig) (Results, error)
+	Reconcile(ctx context.Context, domains []source.DomainConfig) (Results, error)
 }
 
 type engine struct {
@@ -25,7 +26,7 @@ type engine struct {
 	zones        []string
 }
 
-func NewEngine(sm state.Manager, dp provider.Provider, cfg *config.Config) Engine {
+func NewEngine(sm state.Manager, dp provider.Provider, cfg *config.Config) *engine {
 	protected := make(map[string]bool)
 	for _, r := range cfg.Reconcile.ProtectedRecords {
 		protected[r] = true
@@ -39,9 +40,9 @@ func NewEngine(sm state.Manager, dp provider.Provider, cfg *config.Config) Engin
 	}
 }
 
-func (e *engine) Reconcile(domains []source.DomainConfig) (Results, error) {
+func (e *engine) Reconcile(ctx context.Context, domains []source.DomainConfig) (Results, error) {
 	// Load current state
-	prevState, err := e.stateManager.LoadState()
+	prevState, err := e.stateManager.LoadState(ctx)
 	if err != nil {
 		return Results{}, fmt.Errorf("load state: %w", err)
 	}
@@ -63,19 +64,19 @@ func (e *engine) Reconcile(domains []source.DomainConfig) (Results, error) {
 	slog.Info("State comparison", "added", len(changes.Added), "removed", len(changes.Removed))
 
 	// Generate and execute plan
-	plan, err := e.generatePlan(changes)
+	plan, err := e.generatePlan(ctx, changes)
 	if err != nil {
 		return Results{}, fmt.Errorf("generate plan: %w", err)
 	}
 
-	results, err := e.executePlan(plan)
+	results, err := e.executePlan(ctx, plan)
 	if err != nil {
 		return results, fmt.Errorf("execute plan: %w", err)
 	}
 
 	// Save new state
 	if !e.dryRun {
-		if err := e.stateManager.SaveState(currentState); err != nil {
+		if err := e.stateManager.SaveState(ctx, currentState); err != nil {
 			return results, fmt.Errorf("save state: %w", err)
 		}
 	}
@@ -108,7 +109,7 @@ func (e *engine) compareStates(current, previous state.State) state.StateChanges
 	return changes
 }
 
-func (e *engine) generatePlan(changes state.StateChanges) (Plan, error) {
+func (e *engine) generatePlan(ctx context.Context, changes state.StateChanges) (Plan, error) {
 	plan := Plan{
 		Create: []provider.Record{},
 		Delete: []provider.Record{},
@@ -116,7 +117,7 @@ func (e *engine) generatePlan(changes state.StateChanges) (Plan, error) {
 
 	for _, zone := range e.zones {
 		// Get existing records
-		records, err := e.dnsProvider.GetRecords(zone)
+		records, err := e.dnsProvider.GetRecords(ctx, zone)
 		if err != nil {
 			return plan, fmt.Errorf("get records for zone %s: %w", zone, err)
 		}
@@ -170,7 +171,7 @@ func (e *engine) generatePlan(changes state.StateChanges) (Plan, error) {
 	return plan, nil
 }
 
-func (e *engine) executePlan(plan Plan) (Results, error) {
+func (e *engine) executePlan(ctx context.Context, plan Plan) (Results, error) {
 	results := Results{}
 
 	if e.dryRun {
@@ -190,7 +191,7 @@ func (e *engine) executePlan(plan Plan) (Results, error) {
 		// Get zone from record
 		zone := extractZone(record.Name)
 
-		if err := e.dnsProvider.CreateRecord(zone, record); err != nil {
+		if err := e.dnsProvider.CreateRecord(ctx, zone, record); err != nil {
 			slog.Error("Failed to create record", "name", record.Name, "error", err)
 			results.Failures = append(results.Failures, OperationResult{
 				Record: record,
@@ -206,7 +207,7 @@ func (e *engine) executePlan(plan Plan) (Results, error) {
 	for _, record := range plan.Delete {
 		zone := extractZone(record.Name)
 
-		if err := e.dnsProvider.DeleteRecord(zone, record); err != nil {
+		if err := e.dnsProvider.DeleteRecord(ctx, zone, record); err != nil {
 			slog.Error("Failed to delete record", "name", record.Name, "error", err)
 			results.Failures = append(results.Failures, OperationResult{
 				Record: record,

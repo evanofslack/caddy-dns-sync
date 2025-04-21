@@ -3,6 +3,7 @@ package state
 import (
 	"encoding/json"
 	"fmt"
+	"context"
 
 	"github.com/dgraph-io/badger/v3"
 )
@@ -10,8 +11,8 @@ import (
 const domainPrefix = "domain:"
 
 type Manager interface {
-	LoadState() (State, error)
-	SaveState(State) error
+	LoadState(ctx context.Context) (State, error)
+	SaveState(ctx context.Context, state State) error
 	Close() error
 }
 
@@ -30,7 +31,7 @@ func New(path string) (Manager, error) {
 	return &badgerManager{db: db}, nil
 }
 
-func (m *badgerManager) LoadState() (State, error) {
+func (m *badgerManager) LoadState(ctx context.Context) (State, error) {
 	state := State{
 		Domains: make(map[string]DomainState),
 	}
@@ -63,7 +64,7 @@ func (m *badgerManager) LoadState() (State, error) {
 	return state, err
 }
 
-func (m *badgerManager) SaveState(state State) error {
+func (m *badgerManager) SaveState(ctx context.Context, state State) error {
 	txn := m.db.NewTransaction(true)
 	defer txn.Discard()
 
