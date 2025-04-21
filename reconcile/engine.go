@@ -137,7 +137,7 @@ func (e *engine) generatePlan(changes state.StateChanges) (Plan, error) {
 			}
 
 			recordName := getRecordName(domain.Host, zone)
-			if e.isProtected(recordName) {
+			if e.isProtected(domain.Host) {
 				slog.Warn("Skipping protected record", "name", recordName, "zone", zone)
 				continue
 			}
