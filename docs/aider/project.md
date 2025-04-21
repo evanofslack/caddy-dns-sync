@@ -11,7 +11,9 @@ Automatically synchronize reverse-proxy configurations from Caddy server with Cl
 - Interval-based synchronization
 - Multi-provider DNS support
 - Automatic A/CNAME record detection
-- Dry-run mode for safe operations
+- Exponential backoff retry mechanism
+- Zone validation to prevent misconfiguration
+- Caddy API authentication support
 
 ## Architecture Overview
 ```mermaid

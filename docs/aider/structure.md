@@ -13,15 +13,21 @@
 ```go
 // DNS provider operations
 type Provider interface {
-    GetRecords(zone string) ([]Record, error)
-    CreateRecord(zone string, record Record) error
-    UpdateRecord(zone string, record Record) error 
-    DeleteRecord(zone string, record Record) error
+    GetRecords(ctx context.Context, zone string) ([]Record, error)
+    CreateRecord(ctx context.Context, zone string, record Record) error
+    UpdateRecord(ctx context.Context, zone string, record Record) error 
+    DeleteRecord(ctx context.Context, zone string, record Record) error
+    ValidateZone(ctx context.Context, zone string) error
 }
 
 // Reconciliation engine
 type Engine interface {
-    Reconcile(domains []source.DomainConfig) (Results, error)
+    Reconcile(ctx context.Context, domains []source.DomainConfig) (Results, error)
+}
+
+// Retry handler
+type RetryPolicy interface {
+    Execute(ctx context.Context, operation func() error) error
 }
 ```
 

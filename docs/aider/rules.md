@@ -22,3 +22,5 @@
 - State changes are atomic
 - Configuration validation on startup
 - Exponential backoff for API calls
+- Zone validation before operations
+- Authentication for Caddy API access
