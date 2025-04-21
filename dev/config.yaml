@@ -4,11 +4,10 @@ caddy:
   adminUrl: "http://caddy:2019"
 dns:
   provider: "cloudflare"
-  zones: ["example.com"]
+  zones: ["eslack.net"]
   token: "${CLOUDFLARE_API_TOKEN}"
   ttl: 300
 reconcile:
   dryRun: true  # Safety first for development
   protectedRecords:
-    - "ns1.example.com"
-    - "www.example.com"
+    - "example.eslack.com"

@@ -1,8 +1,14 @@
 {
-    admin localhost:2019
+    admin 0.0.0.0:2019
     debug
 }
 
+# Default site
+:80 {
+    respond "Caddy DNS Synchronizer Test Server"
+}
+
+# Test domains that will be synchronized
 *.example.com {
     reverse_proxy http://backend:8080
 }

@@ -1,28 +1,28 @@
-version: '3.8'
-
 services:
   caddy:
     image: caddy:latest
+    container_name: caddy
     ports:
       - "80:80"
       - "443:443"
       - "2019:2019"  # Admin API port
     volumes:
-      - ./dev/caddy/Caddyfile:/etc/caddy/Caddyfile
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
     networks:
       - sync-network
     command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
 
-  sync-service:
-    build: .
+  caddy-dns-sync:
+    build: ../.
+    container_name: caddy-dns-sync
     environment:
       - CADDY_ADMIN_URL=http://caddy:2019
       - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN:-dummy-token}
     volumes:
       - ./config.yaml:/app/config.yaml
-      - sync_state:/data
+      - caddy_dns_sync_state:/data
     networks:
       - sync-network
     depends_on:
@@ -31,7 +31,7 @@ services:
 volumes:
   caddy_data:
   caddy_config:
-  sync_state:
+  caddy_dns_sync_state:
 
 networks:
   sync-network:
