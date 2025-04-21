@@ -3,6 +3,7 @@ package caddy
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/evanofslack/caddy-dns-sync/source"
@@ -68,6 +69,7 @@ func (c *client) extractDomains(config Config) ([]source.DomainConfig, error) {
 				for _, host := range match.Host {
 					// Find reverse_proxy handlers
 					for _, handle := range route.Handle {
+					    slog.Default().Info("Got handler", "handler", handle.Handler, "upstreams", handle.Upstreams)
 						if handle.Handler == "reverse_proxy" && len(handle.Upstreams) > 0 {
 							domains = append(domains, source.DomainConfig{
 								Host:       host,

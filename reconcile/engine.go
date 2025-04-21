@@ -120,11 +120,13 @@ func (e *engine) generatePlan(changes state.StateChanges) (Plan, error) {
 		if err != nil {
 			return plan, fmt.Errorf("get records for zone %s: %w", zone, err)
 		}
+		slog.Info("Got records from dns provider", "count", len(records))
 
 		recordMap := make(map[string]provider.Record)
 		for _, r := range records {
 			if r.Type == "A" || r.Type == "CNAME" {
 				recordMap[r.Name] = r
+                slog.Debug("Got record", "name", r.Name, "type", r.Type)
 			}
 		}
 

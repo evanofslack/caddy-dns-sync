@@ -36,6 +36,7 @@ func New(cfg config.DNS) (*CloudflareProvider, error) {
 
 func (p *CloudflareProvider) GetRecords(zone string) ([]provider.Record, error) {
 	ctx := context.Background()
+	slog.Info("Getting DNS records", "zone", zone)
 
 	records, err := p.cf.GetRecords(ctx, zone)
 	if err != nil {
