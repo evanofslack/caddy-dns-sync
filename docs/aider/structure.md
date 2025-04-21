@@ -31,11 +31,16 @@ sequenceDiagram
     participant Caddy
     participant SyncService
     participant State
-    participant Cloudflare
+    participant DNSProvider
     
     Caddy->>SyncService: Poll for configs
     SyncService->>State: Load previous state
-    SyncService->>SyncService: Calculate changes
-    SyncService->>Cloudflare: Apply DNS changes
+    SyncService->>SyncService: Compare states
+    SyncService->>DNSProvider: Get records
+    alt Dry-run
+        SyncService-->>SyncService: Simulate changes
+    else
+        SyncService->>DNSProvider: Apply changes
+    end
     SyncService->>State: Persist new state
 ```

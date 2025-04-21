@@ -2,8 +2,10 @@
 
 ## High Priority
 
-- [ ] Add docker-compose.yaml for development testing
-- [ ] Implement zone configuration from DNS settings
+- [x] Add docker-compose.yaml for development testing
+- [x] Implement zone configuration from DNS settings
+- [ ] Add zone validation in reconciliation
+- [ ] Support nested subdomains in zone matching
 - [ ] Add retry logic with exponential backoff
 - [ ] Create Prometheus metrics endpoint
 - [ ] Add Caddy API authentication support

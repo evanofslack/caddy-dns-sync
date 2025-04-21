@@ -9,7 +9,9 @@ Automatically synchronize reverse-proxy configurations from Caddy server with Cl
 - State persistence using BadgerDB
 - Protected records safeguard
 - Interval-based synchronization
-- Cloudflare DNS integration
+- Multi-provider DNS support
+- Automatic A/CNAME record detection
+- Dry-run mode for safe operations
 
 ## Architecture Overview
 ```mermaid
