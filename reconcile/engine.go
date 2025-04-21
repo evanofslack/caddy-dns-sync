@@ -22,6 +22,7 @@ type engine struct {
 	dnsProvider  provider.Provider
 	dryRun       bool
 	protected    map[string]bool
+	zones        []string
 }
 
 func NewEngine(sm state.Manager, dp provider.Provider, cfg *config.Config) Engine {
@@ -34,6 +35,7 @@ func NewEngine(sm state.Manager, dp provider.Provider, cfg *config.Config) Engin
 		dnsProvider:  dp,
 		dryRun:       cfg.Reconcile.DryRun,
 		protected:    protected,
+		zones:        cfg.DNS.Zones,
 	}
 }
 
@@ -91,7 +93,7 @@ func (e *engine) compareStates(current, previous state.State) state.StateChanges
 	for host, domainCfg := range current.Domains {
 		if prev, exists := previous.Domains[host]; !exists || prev.ServerName != domainCfg.ServerName {
 			changes.Added = append(changes.Added, source.DomainConfig{
-				Host:       host,
+				Host:     host,
 				Upstream: domainCfg.ServerName,
 			})
 		}
@@ -112,11 +114,7 @@ func (e *engine) generatePlan(changes state.StateChanges) (Plan, error) {
 		Delete: []provider.Record{},
 	}
 
-	// For each zone we're managing
-	// TODO: Get zones from config
-	zones := []string{"example.com"}
-
-	for _, zone := range zones {
+	for _, zone := range e.zones {
 		// Get existing records
 		records, err := e.dnsProvider.GetRecords(zone)
 		if err != nil {
@@ -146,7 +144,7 @@ func (e *engine) generatePlan(changes state.StateChanges) (Plan, error) {
 				Name: recordName,
 				Type: getRecordType(extractHostFromUpstream(domain.Upstream)),
 				Data: extractHostFromUpstream(domain.Upstream),
-				TTL:  3600,        // This should be configurable
+				TTL:  3600, // This should be configurable
 			})
 		}
 
@@ -247,7 +245,7 @@ func extractHostFromUpstream(upstream string) string {
 	if upstream == "" {
 		return ""
 	}
-	
+
 	host, _, err := net.SplitHostPort(upstream)
 	if err != nil {
 		// If no port, use entire string
