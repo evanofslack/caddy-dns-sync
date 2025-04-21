@@ -1,0 +1,12 @@
+{
+    admin localhost:2019
+    debug
+}
+
+*.example.com {
+    reverse_proxy http://backend:8080
+}
+
+test.local {
+    reverse_proxy http://backend:9000
+}

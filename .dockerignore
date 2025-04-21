@@ -1,0 +1,10 @@
+.git
+**/*.md
+**/testdata/
+vendor/
+bin/
+tmp/
+*.db
+.env
+*.log
+.DS_Store
