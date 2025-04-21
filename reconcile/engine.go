@@ -226,7 +226,8 @@ func (e *engine) isProtected(name string) bool {
 }
 
 func belongsToZone(host, zone string) bool {
-	return strings.HasSuffix(host, zone) || host == zone
+	// Match exact zone or subdomains with dot separator
+	return host == zone || strings.HasSuffix(host, "."+zone)
 }
 
 func getRecordName(host, zone string) string {

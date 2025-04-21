@@ -39,6 +39,9 @@ func TestEngine(t *testing.T) {
 			DryRun:           false,
 			ProtectedRecords: []string{"protected.example.com"},
 		},
+		DNS: config.DNS{
+			Zones: []string{"example.com"},
+		},
 	}
 
 	tests := []struct {
@@ -63,7 +66,12 @@ func TestEngine(t *testing.T) {
 			providerSetup: map[string][]provider.Record{
 				"example.com": {},
 			},
-			config: testConfig,
+			config: &config.Config{
+				Reconcile: testConfig.Reconcile,
+				DNS: config.DNS{
+					Zones: []string{"example.com"},
+				},
+			},
 			expected: Results{
 				Created: []provider.Record{
 					{Name: "new", Type: "A", Data: "192.168.1.1", TTL: 3600},
@@ -83,7 +91,12 @@ func TestEngine(t *testing.T) {
 					{Name: "old", Type: "A", Data: "10.0.0.1"},
 				},
 			},
-			config: testConfig,
+			config: &config.Config{
+				Reconcile: testConfig.Reconcile,
+				DNS: config.DNS{
+					Zones: []string{"example.com"},
+				},
+			},
 			expected: Results{
 				Deleted: []provider.Record{
 					{Name: "old", Type: "A", Data: "10.0.0.1"},
@@ -101,7 +114,12 @@ func TestEngine(t *testing.T) {
 			providerSetup: map[string][]provider.Record{
 				"example.com": {},
 			},
-			config: testConfig,
+			config: &config.Config{
+				Reconcile: testConfig.Reconcile,
+				DNS: config.DNS{
+					Zones: []string{"example.com"},
+				},
+			},
 			expected: Results{
 				Created: []provider.Record{},
 			},
@@ -117,7 +135,12 @@ func TestEngine(t *testing.T) {
 			providerSetup: map[string][]provider.Record{
 				"example.com": {},
 			},
-			config: testConfig,
+			config: &config.Config{
+				Reconcile: testConfig.Reconcile,
+				DNS: config.DNS{
+					Zones: []string{"example.com"},
+				},
+			},
 			expected: Results{
 				Created: []provider.Record{
 					{Name: "api", Type: "CNAME", Data: "reroute.com", TTL: 3600},
@@ -145,6 +168,9 @@ func TestEngine(t *testing.T) {
 			config: &config.Config{
 				Reconcile: config.Reconcile{
 					DryRun: true,
+				},
+				DNS: config.DNS{
+					Zones: []string{"example.com"},
 				},
 			},
 			expected: Results{
