@@ -14,8 +14,9 @@ type Server struct {
 }
 
 type Route struct {
-	Match  []Match   `json:"match"`
-	Handle []Handler `json:"handle"`
+	Match    []Match   `json:"match"`
+	Handle   []Handler `json:"handle"`
+	Terminal bool      `json:"terminal,omitempty"`
 }
 
 type Match struct {
@@ -23,8 +24,10 @@ type Match struct {
 }
 
 type Handler struct {
-	Handler string      `json:"handler"`
-	Upstreams []Upstream `json:"upstreams,omitempty"`
+	Handler    string      `json:"handler"`
+	Upstreams  []Upstream  `json:"upstreams,omitempty"`
+	Routes     []Route     `json:"routes,omitempty"`
+	Terminal   bool        `json:"terminal,omitempty"`
 }
 
 type Upstream struct {

@@ -128,6 +128,43 @@ func TestDomains(t *testing.T) {
 			expected:       []source.DomainConfig{},
 			expectError:    false,
 		},
+		{
+			name: "nested configuration parsing",
+			mockResponse: map[string]interface{}{
+				"apps": map[string]interface{}{
+					"http": map[string]interface{}{
+						"servers": map[string]interface{}{
+							"srv0": map[string]interface{}{
+								"listen": []string{":443"},
+								"routes": []map[string]interface{}{{
+									"match": []map[string]interface{}{{"host": []string{"*.eslack.net"}}},
+									"handle": []map[string]interface{}{{
+										"handler": "subroute",
+										"routes": []map[string]interface{}{{
+											"match": []map[string]interface{}{{"host": []string{"synctest.local.eslack.net"}}},
+											"handle": []map[string]interface{}{{
+												"handler": "subroute",
+												"routes": []map[string]interface{}{{
+													"handle": []map[string]interface{}{{
+														"handler": "reverse_proxy",
+														"upstreams": []map[string]interface{}{{"dial": "1.1.1.1:443"}},
+													}},
+												}},
+											}},
+										}},
+									}},
+									"terminal": true,
+								}},
+							},
+						},
+					},
+				},
+			},
+			mockStatusCode: http.StatusOK,
+			expected: []source.DomainConfig{
+				{Host: "synctest.local.eslack.net", Upstream: "1.1.1.1:443"},
+			},
+		},
 	}
 
 	for _, tt := range tests {
