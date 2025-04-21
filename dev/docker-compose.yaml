@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  caddy:
+    image: caddy:latest
+    ports:
+      - "80:80"
+      - "443:443"
+      - "2019:2019"  # Admin API port
+    volumes:
+      - ./dev/caddy/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - sync-network
+    command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+
+  sync-service:
+    build: .
+    environment:
+      - CADDY_ADMIN_URL=http://caddy:2019
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN:-dummy-token}
+    volumes:
+      - ./config.yaml:/app/config.yaml
+      - sync_state:/data
+    networks:
+      - sync-network
+    depends_on:
+      - caddy
+
+volumes:
+  caddy_data:
+  caddy_config:
+  sync_state:
+
+networks:
+  sync-network:
