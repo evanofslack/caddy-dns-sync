@@ -13,10 +13,10 @@ Automatically synchronize reverse-proxy configurations from Caddy server with Cl
 
 1. **Set up environment variables**:
 
-   Create a `.env` file in the project root:
+   Export the Cloudflare API token in your environment:
 
-   ```
-   CLOUDFLARE_API_TOKEN=your_cloudflare_api_token
+   ```bash
+   export CLOUDFLARE_API_TOKEN=your_cloudflare_api_token
    ```
 
 2. **Start the development environment**:

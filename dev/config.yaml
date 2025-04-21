@@ -5,7 +5,7 @@ caddy:
 dns:
   provider: "cloudflare"
   zones: ["eslack.net"]
-  token: "${CLOUDFLARE_API_TOKEN}"
+  token: "" # Use CLOUDFLARE_API_TOKEN environment variable
   ttl: 300
 reconcile:
   dryRun: true  # Safety first for development

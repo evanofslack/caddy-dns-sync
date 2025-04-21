@@ -27,7 +27,7 @@ type Caddy struct {
 type DNS struct {
 	Provider string   `yaml:"provider"`
 	Zones    []string `yaml:"zones"`
-	Token    string   `yaml:"token"`
+	Token    string   `yaml:"token"` // Value will be overridden by environment variable
 	TTL      int      `yaml:"ttl"`
 }
 
@@ -55,6 +55,11 @@ func Load(path string) (*Config, error) {
 
 	if cfg.StatePath == "" {
 		cfg.StatePath = defaultStatePath
+	}
+
+	// Override token from environment if set
+	if token := os.Getenv("CLOUDFLARE_API_TOKEN"); token != "" {
+		cfg.DNS.Token = token
 	}
 	return &cfg, nil
 }
