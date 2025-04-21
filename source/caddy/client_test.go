@@ -84,9 +84,9 @@ func TestDomains(t *testing.T) {
 			mockStatusCode: http.StatusOK,
 			mockError:      nil,
 			expected: []source.DomainConfig{
-				{Host: "example.com", ServerName: "localhost:8080"},
-				{Host: "www.example.com", ServerName: "localhost:8080"},
-				{Host: "api.example.com", ServerName: "localhost:9000"},
+				{Host: "example.com", Upstream: "localhost:8080"},
+				{Host: "www.example.com", Upstream: "localhost:8080"},
+				{Host: "api.example.com", Upstream: "localhost:9000"},
 			},
 			expectError: false,
 		},

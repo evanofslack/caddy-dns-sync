@@ -71,7 +71,7 @@ func (c *client) extractDomains(config Config) ([]source.DomainConfig, error) {
 						if handle.Handler == "reverse_proxy" && len(handle.Upstreams) > 0 {
 							domains = append(domains, source.DomainConfig{
 								Host:       host,
-								ServerName: handle.Upstreams[0].Dial,
+								Upstream: handle.Upstreams[0].Dial,
 							})
 						}
 					}

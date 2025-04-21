@@ -3,6 +3,7 @@ package reconcile
 import (
 	"fmt"
 	"log/slog"
+	"net"
 	"strings"
 	"time"
 
@@ -50,7 +51,7 @@ func (e *engine) Reconcile(domains []source.DomainConfig) (Results, error) {
 
 	for _, d := range domains {
 		currentState.Domains[d.Host] = state.DomainState{
-			ServerName: d.ServerName,
+			ServerName: d.Upstream,
 			LastSeen:   time.Now().Unix(),
 		}
 	}
@@ -91,7 +92,7 @@ func (e *engine) compareStates(current, previous state.State) state.StateChanges
 		if prev, exists := previous.Domains[host]; !exists || prev.ServerName != domainCfg.ServerName {
 			changes.Added = append(changes.Added, source.DomainConfig{
 				Host:       host,
-				ServerName: domainCfg.ServerName,
+				Upstream: domainCfg.ServerName,
 			})
 		}
 	}
@@ -143,8 +144,8 @@ func (e *engine) generatePlan(changes state.StateChanges) (Plan, error) {
 
 			plan.Create = append(plan.Create, provider.Record{
 				Name: recordName,
-				Type: "A",         // Default to A records, could be configurable
-				Data: "127.0.0.1", // This should be configurable
+				Type: getRecordType(extractHostFromUpstream(domain.Upstream)),
+				Data: extractHostFromUpstream(domain.Upstream),
 				TTL:  3600,        // This should be configurable
 			})
 		}
@@ -233,6 +234,26 @@ func getRecordName(host, zone string) string {
 		return "@"
 	}
 	return strings.TrimSuffix(host, "."+zone)
+}
+
+func getRecordType(host string) string {
+	if ip := net.ParseIP(host); ip != nil {
+		return "A"
+	}
+	return "CNAME"
+}
+
+func extractHostFromUpstream(upstream string) string {
+	if upstream == "" {
+		return ""
+	}
+	
+	host, _, err := net.SplitHostPort(upstream)
+	if err != nil {
+		// If no port, use entire string
+		return upstream
+	}
+	return host
 }
 
 func extractZone(recordName string) string {
