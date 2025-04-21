@@ -9,10 +9,9 @@
 }
 
 # Test domains that will be synchronized
-*.example.com {
-    reverse_proxy http://backend:8080
-}
-
-test.local {
-    reverse_proxy http://backend:9000
+*.eslack.net {
+    @synctest host synctest.local.eslack.net
+        handle @synctest {
+                reverse_proxy 1.1.1.1:443
+        }
 }
