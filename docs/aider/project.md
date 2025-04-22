@@ -10,7 +10,7 @@ Automatically synchronize reverse-proxy configurations from Caddy server with Cl
 - Protected records safeguard
 - Interval-based synchronization
 - Multi-provider DNS support
-- Automatic A/CNAME record detection
+- Automatic A/CNAME record detection with ownership TXT records
 - Exponential backoff retry mechanism
 - Zone validation to prevent misconfiguration
 - Caddy API authentication support
@@ -31,6 +31,6 @@ graph TD
 1. Poll Caddy Admin API for reverse proxy configurations
 2. Compare with persisted state
 3. Calculate DNS changes needed
-4. Apply changes to Cloudflare DNS (with safety checks)
+4. Apply changes to Cloudflare DNS (with safety checks and ownership verification)
 5. Update persisted state
 6. Expose operational metrics via Prometheus endpoint

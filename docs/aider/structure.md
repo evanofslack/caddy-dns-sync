@@ -5,7 +5,7 @@
 |--------------|-----------------------------------------|
 | config       | Configuration loading & validation      |
 | provider     | DNS provider implementations           |
-| reconcile    | Change detection & planning            |
+| reconcile    | Change detection & planning with ownership tracking |
 | source       | Caddy API integration                  |
 | state        | Persisted state management             |
 

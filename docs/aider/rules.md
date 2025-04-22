@@ -20,6 +20,7 @@
 ## Safety Mechanisms
 
 - Protected records cannot be modified
+- TXT record ownership verification for all managed records
 - Dry-run mode enabled by default
 - State changes are atomic
 - Configuration validation on startup
