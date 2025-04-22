@@ -67,6 +67,10 @@ func (e *engine) Reconcile(ctx context.Context, domains []source.DomainConfig) (
 	// Compare states to find changes
 	changes := e.compareStates(currentState, prevState)
 	slog.Info("State comparison", "added", len(changes.Added), "removed", len(changes.Removed))
+	if changes.IsEmpty() {
+		slog.Info("No caddy entry changes, ending reconciliation")
+		return Results{}, nil
+	}
 
 	// Generate and execute plan
 	plan, err := e.generatePlan(ctx, changes)
@@ -78,7 +82,6 @@ func (e *engine) Reconcile(ctx context.Context, domains []source.DomainConfig) (
 	if err != nil {
 		return results, fmt.Errorf("execute plan: %w", err)
 	}
-
 	return results, nil
 }
 
@@ -124,12 +127,12 @@ func (e *engine) generatePlan(ctx context.Context, changes state.StateChanges) (
 		recordMap := make(map[string]provider.Record)
 		managedTXTRecords := make(map[string]provider.Record)
 		for _, r := range records {
-			slog.Debug("Got record", "name", r.Name, "type", r.Type)
+			slog.Debug("Got record", "name", r.Name, "type", r.Type, "data", r.Data)
 			switch r.Type {
 			case "A", "CNAME":
 				recordMap[r.Name] = r
 			case "TXT":
-				if strings.HasPrefix(r.Data, "heritage=caddy-dns-sync") && strings.Contains(r.Data, "caddy-dns-sync/owner="+e.cfg.Reconcile.Owner) {
+				if strings.Contains(r.Data, "heritage=caddy-dns-sync") && strings.Contains(r.Data, "caddy-dns-sync/owner="+e.cfg.Reconcile.Owner) {
 					managedTXTRecords[r.Name] = r
 				}
 			}
@@ -163,7 +166,7 @@ func (e *engine) generatePlan(ctx context.Context, changes state.StateChanges) (
 			txtRecord := provider.Record{
 				Name: recordName,
 				Type: "TXT",
-                Data: fmt.Sprintf("\"heritage=caddy-dns-sync,caddy-dns-sync/owner=%s\"", e.cfg.Reconcile.Owner),
+				Data: fmt.Sprintf("\"heritage=caddy-dns-sync,caddy-dns-sync/owner=%s\"", e.cfg.Reconcile.Owner),
 				TTL:  3600,
 				Zone: zone,
 			}
@@ -228,9 +231,7 @@ func (e *engine) executePlan(ctx context.Context, plan Plan, newState state.Stat
 
 	// Execute creates
 	for _, record := range plan.Create {
-		slog.Info("Start execute create from plan", "name", record.Name, "type", record.Type, "data", record.Data, "zone", record.Zone)
-		// Get zone from record
-
+		slog.Debug("Start execute create from plan", "name", record.Name, "type", record.Type, "data", record.Data, "zone", record.Zone)
 		if err := e.dnsProvider.CreateRecord(ctx, record.Zone, record); err != nil {
 			slog.Error("Failed to create record", "name", record.Name, "error", err)
 			results.Failures = append(results.Failures, OperationResult{
@@ -245,8 +246,7 @@ func (e *engine) executePlan(ctx context.Context, plan Plan, newState state.Stat
 
 	// Execute deletes
 	for _, record := range plan.Delete {
-		slog.Info("Start execute delete from plan", "name", record.Name, "type", record.Type, "data", record.Data, "zone", record.Zone)
-
+		slog.Debug("Start execute delete from plan", "name", record.Name, "type", record.Type, "data", record.Data, "zone", record.Zone)
 		if err := e.dnsProvider.DeleteRecord(ctx, record.Zone, record); err != nil {
 			slog.Error("Failed to delete record", "name", record.Name, "error", err)
 			results.Failures = append(results.Failures, OperationResult{
@@ -289,7 +289,19 @@ func getRecordName(host, zone string) string {
 
 func getRecordType(host string) string {
 	if ip := net.ParseIP(host); ip != nil {
+		if ip.To4() != nil {
+			return "AAAA"
+		}
 		return "A"
+	}
+
+	if ipstr, _, err := net.SplitHostPort(host); err != nil {
+		if ip := net.ParseIP(ipstr); ip != nil {
+			if ip.To4() != nil {
+				return "AAAA"
+			}
+			return "A"
+		}
 	}
 	return "CNAME"
 }

@@ -17,3 +17,7 @@ type StateChanges struct {
 	Added   []source.DomainConfig
 	Removed []string
 }
+
+func (st StateChanges) IsEmpty() bool {
+	return len(st.Added) == 0 && len(st.Removed) == 0
+}
