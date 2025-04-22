@@ -9,11 +9,13 @@
 - Zero-downtime friendly patterns
 - Context-aware operations
 - Minimal comments and concise coding language
+- Consistent metric naming and labeling
 
 ## Contribution Process
 
 2. Update documentation with changes
 3. Add/update tests
+4. Ensure metrics coverage for new features
 
 ## Safety Mechanisms
 
@@ -24,3 +26,12 @@
 - Exponential backoff for API calls
 - Zone validation before operations
 - Authentication for Caddy API access
+- Low-cardinality metric labels
+
+## Metrics Guidelines
+
+- Follow Prometheus naming conventions (snake_case)
+- Keep label cardinality low (avoid unbounded labels)
+- Use appropriate metric types (counter, gauge, histogram)
+- Include status labels for success/failure tracking
+- Document all metrics in code and documentation

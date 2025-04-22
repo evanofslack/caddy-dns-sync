@@ -14,6 +14,7 @@ Automatically synchronize reverse-proxy configurations from Caddy server with Cl
 - Exponential backoff retry mechanism
 - Zone validation to prevent misconfiguration
 - Caddy API authentication support
+- Comprehensive metrics for operational visibility
 
 ## Architecture Overview
 ```mermaid
@@ -23,6 +24,7 @@ graph TD
     B --> D[Cloudflare DNS]
     E[Configuration] --> B
     B --> F[Metrics & Logs]
+    G[Prometheus] --> F
 ```
 
 ## How It Works
@@ -31,3 +33,4 @@ graph TD
 3. Calculate DNS changes needed
 4. Apply changes to Cloudflare DNS (with safety checks)
 5. Update persisted state
+6. Expose operational metrics via Prometheus endpoint
