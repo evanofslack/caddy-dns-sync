@@ -64,7 +64,7 @@ func (p *CloudflareProvider) CreateRecord(ctx context.Context, zone string, reco
 	}
 	recs := []libdns.Record{r}
 
-	if _, err = p.cf.AppendRecords(ctx, zone, recs); err != nil {
+	if _, err = p.cf.SetRecords(ctx, zone, recs); err != nil {
 		p.metrics.IncDNSRequest("create", zone, false)
 		return err
 
@@ -93,7 +93,7 @@ func (p *CloudflareProvider) UpdateRecord(ctx context.Context, zone string, reco
 }
 
 func (p *CloudflareProvider) DeleteRecord(ctx context.Context, zone string, record provider.Record) error {
-	slog.Info("Deleting DNS record", "zone", zone, "name", record.Name)
+	slog.Info("Deleting DNS record", "zone", zone, "name", record.Name, "type", record.Type)
 
 	r, err := provider.ToLibdns(record)
 	if err != nil {
