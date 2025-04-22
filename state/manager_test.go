@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/dgraph-io/badger/v3"
+	"github.com/evanofslack/caddy-dns-sync/metrics"
 )
 
 func TestBadgerManager(t *testing.T) {
@@ -21,9 +22,10 @@ func TestBadgerManager(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	dbPath := filepath.Join(tempDir, "badger")
+	metrics := metrics.New(false)
 
 	// Create manager
-	manager, err := New(dbPath)
+	manager, err := New(dbPath, metrics)
 	if err != nil {
 		t.Fatalf("failed to create manager: %v", err)
 	}
@@ -166,6 +168,7 @@ func TestBadgerManagerDirect(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	dbPath := filepath.Join(tempDir, "badger")
+	metrics := metrics.New(false)
 
 	// Test direct DB access
 	db, err := badger.Open(badger.DefaultOptions(dbPath).WithLogger(nil))
@@ -189,12 +192,12 @@ func TestBadgerManagerDirect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to commit: %v", err)
 	}
-    if err := db.Close(); err != nil {
-        t.Fatal(err)
-    }
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
 
 	// Now open with manager and test
-	manager, err := New(dbPath)
+	manager, err := New(dbPath, metrics)
 	if err != nil {
 		t.Fatalf("failed to create manager: %v", err)
 	}
@@ -218,8 +221,9 @@ func TestBadgerManagerDirect(t *testing.T) {
 }
 
 func TestBadgerManagerError(t *testing.T) {
+	metrics := metrics.New(false)
 	// Try to create manager with invalid path
-	_, err := New("/nonexistent/path/that/cannot/be/created")
+	_, err := New("/nonexistent/path/that/cannot/be/created", metrics)
 	if err == nil {
 		t.Fatal("expected error for invalid path but got nil")
 	}

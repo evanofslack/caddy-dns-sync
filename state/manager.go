@@ -1,11 +1,12 @@
 package state
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"context"
 
 	"github.com/dgraph-io/badger/v3"
+	"github.com/evanofslack/caddy-dns-sync/metrics"
 )
 
 const domainPrefix = "domain:"
@@ -17,10 +18,11 @@ type Manager interface {
 }
 
 type badgerManager struct {
-	db *badger.DB
+	db      *badger.DB
+	metrics *metrics.Metrics
 }
 
-func New(path string) (Manager, error) {
+func New(path string, metrics *metrics.Metrics) (Manager, error) {
 	opts := badger.DefaultOptions(path)
 	opts.Logger = nil // Disable Badger's internal logger
 
@@ -28,7 +30,8 @@ func New(path string) (Manager, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open badger db: %w", err)
 	}
-	return &badgerManager{db: db}, nil
+	m := &badgerManager{db: db, metrics: metrics}
+	return m, nil
 }
 
 func (m *badgerManager) LoadState(ctx context.Context) (State, error) {
@@ -61,6 +64,7 @@ func (m *badgerManager) LoadState(ctx context.Context) (State, error) {
 		}
 		return nil
 	})
+	m.metrics.IncBadgerRequest("read", err == nil)
 	return state, err
 }
 
@@ -84,10 +88,12 @@ func (m *badgerManager) SaveState(ctx context.Context, state State) error {
 	for host, domain := range state.Domains {
 		data, err := json.Marshal(domain)
 		if err != nil {
+			m.metrics.IncBadgerRequest("update", false)
 			return err
 		}
 		key := domainPrefix + host
 		if err := txn.Set([]byte(key), data); err != nil {
+			m.metrics.IncBadgerRequest("update", false)
 			return err
 		}
 		// Remove from existingHosts to track what's been kept
@@ -98,10 +104,13 @@ func (m *badgerManager) SaveState(ctx context.Context, state State) error {
 	for host := range existingHosts {
 		key := domainPrefix + host
 		if err := txn.Delete([]byte(key)); err != nil {
+			m.metrics.IncBadgerRequest("delete", false)
 			return err
 		}
 	}
-	return txn.Commit()
+	err := txn.Commit()
+	m.metrics.IncBadgerRequest("update", err == nil)
+	return err
 }
 
 func (m *badgerManager) Close() error {
