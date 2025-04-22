@@ -34,7 +34,7 @@ func main() {
 		Handler: mux,
 	}
 
-	// Start metrics server in background
+	// Start http server in background
 	go func() {
 		slog.Info("Starting metrics server", "address", server.Addr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -51,7 +51,6 @@ func main() {
 		slog.Error("Failed to load config", "error", err)
 		os.Exit(1)
 	}
-
 
 	stateManager, err := state.New(cfg.StatePath)
 	if err != nil {
@@ -74,7 +73,7 @@ func main() {
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
-	go runSyncLoop(ctx, wg, caddyClient, engine, cfg.SyncInterval)
+	go runSyncLoop(ctx, wg, caddyClient, engine, metrics, cfg.SyncInterval)
 
 	// Handle graceful shutdown
 	sigCh := make(chan os.Signal, 1)
@@ -83,7 +82,7 @@ func main() {
 
 	slog.Info("Shutdown signal received")
 	cancel()
-	
+
 	// Shutdown server with same context
 	serverShutdownCtx, cancelServer := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelServer()
@@ -96,13 +95,13 @@ func main() {
 	slog.Info("Service shutdown complete")
 }
 
-func runSyncLoop(ctx context.Context, wg *sync.WaitGroup, client caddy.Client, engine reconcile.Engine, interval time.Duration) {
+func runSyncLoop(ctx context.Context, wg *sync.WaitGroup, client caddy.Client, engine reconcile.Engine, metrics *metrics.Metrics, interval time.Duration) {
 	defer wg.Done()
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
-		if err := performSync(ctx, client, engine); err != nil {
+		if err := performSync(ctx, client, engine, metrics); err != nil {
 			slog.Error("Sync operation failed", "error", err)
 		}
 
@@ -116,17 +115,23 @@ func runSyncLoop(ctx context.Context, wg *sync.WaitGroup, client caddy.Client, e
 	}
 }
 
-func performSync(ctx context.Context, client caddy.Client, engine reconcile.Engine) error {
+func performSync(ctx context.Context, client caddy.Client, engine reconcile.Engine, metrics *metrics.Metrics) error {
 	slog.Info("Starting sync operation")
+	start := time.Now()
+	defer func() {
+		metrics.SetSyncDuration(time.Since(start))
+	}()
 
 	domains, err := client.Domains(ctx)
 	if err != nil {
+		metrics.IncSyncRun(false)
 		return err
 	}
 
 	slog.Info("Reconciling domains", "count", len(domains))
 	results, err := engine.Reconcile(ctx, domains)
 	if err != nil {
+		metrics.IncSyncRun(false)
 		return err
 	}
 
@@ -134,6 +139,7 @@ func performSync(ctx context.Context, client caddy.Client, engine reconcile.Engi
 		"created", len(results.Created),
 		"updated", len(results.Updated),
 		"deleted", len(results.Deleted))
+	metrics.IncSyncRun(true)
 
 	return nil
 }
