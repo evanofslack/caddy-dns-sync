@@ -116,6 +116,8 @@ func (c *client) processHandlers(parentHost string, handlers []Handler, domains 
 		}
 
 		if handler.Handler == "reverse_proxy" && len(handler.Upstreams) > 0 {
+			upstream := handler.Upstreams[0].Dial
+            slog.Info("Added domain", "host", currentHost, "upstream", upstream)
 			*domains = append(*domains, source.DomainConfig{
 				Host:     currentHost, // Use most specific host context
 				Upstream: handler.Upstreams[0].Dial,
