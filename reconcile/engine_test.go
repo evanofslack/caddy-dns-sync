@@ -1,16 +1,16 @@
 package reconcile
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
-	"context"
 
 	"github.com/evanofslack/caddy-dns-sync/config"
+	"github.com/evanofslack/caddy-dns-sync/metrics"
 	"github.com/evanofslack/caddy-dns-sync/provider"
 	"github.com/evanofslack/caddy-dns-sync/source"
 	"github.com/evanofslack/caddy-dns-sync/state"
-	"github.com/evanofslack/caddy-dns-sync/metrics"
 )
 
 type MockStateManager struct {
@@ -52,6 +52,7 @@ func TestEngine(t *testing.T) {
 		Reconcile: config.Reconcile{
 			DryRun:           false,
 			ProtectedRecords: []string{"protected.example.com"},
+			Owner:            "test-owner",
 		},
 		DNS: config.DNS{
 			Zones: []string{"example.com"},
@@ -89,6 +90,7 @@ func TestEngine(t *testing.T) {
 			expected: Results{
 				Created: []provider.Record{
 					{Name: "new", Type: "A", Data: "192.168.1.1", TTL: 3600},
+					{Name: "new", Type: "TXT", Data: "heritage=caddy-dns-sync,caddy-dns-sync/owner=test-owner", TTL: 3600},
 				},
 			},
 		},
@@ -103,6 +105,7 @@ func TestEngine(t *testing.T) {
 			providerSetup: map[string][]provider.Record{
 				"example.com": {
 					{Name: "old", Type: "A", Data: "10.0.0.1"},
+					{Name: "old", Type: "TXT", Data: "heritage=caddy-dns-sync,caddy-dns-sync/owner=test-owner"},
 				},
 			},
 			config: &config.Config{
@@ -114,7 +117,55 @@ func TestEngine(t *testing.T) {
 			expected: Results{
 				Deleted: []provider.Record{
 					{Name: "old", Type: "A", Data: "10.0.0.1"},
+					{Name: "old", Type: "TXT", Data: "heritage=caddy-dns-sync,caddy-dns-sync/owner=test-owner"},
 				},
+			},
+		},
+		{
+			name: "unmanaged record deletion skip",
+			initialState: state.State{
+				Domains: map[string]state.DomainState{
+					"unmanaged.example.com": {ServerName: "10.0.0.1:8080", LastSeen: now - 100},
+				},
+			},
+			currentDomains: []source.DomainConfig{},
+			providerSetup: map[string][]provider.Record{
+				"example.com": {
+					{Name: "unmanaged", Type: "A", Data: "10.0.0.1"},
+				},
+			},
+			config: &config.Config{
+				Reconcile: testConfig.Reconcile,
+				DNS: config.DNS{
+					Zones: []string{"example.com"},
+				},
+			},
+			expected: Results{
+				Deleted: []provider.Record{},
+			},
+		},
+		{
+			name: "mismatched owner deletion skip",
+			initialState: state.State{
+				Domains: map[string]state.DomainState{
+					"wrongowner.example.com": {ServerName: "10.0.0.1:8080", LastSeen: now - 100},
+				},
+			},
+			currentDomains: []source.DomainConfig{},
+			providerSetup: map[string][]provider.Record{
+				"example.com": {
+					{Name: "wrongowner", Type: "A", Data: "10.0.0.1"},
+					{Name: "wrongowner", Type: "TXT", Data: "heritage=caddy-dns-sync,caddy-dns-sync/owner=other-owner"},
+				},
+			},
+			config: &config.Config{
+				Reconcile: testConfig.Reconcile,
+				DNS: config.DNS{
+					Zones: []string{"example.com"},
+				},
+			},
+			expected: Results{
+				Deleted: []provider.Record{},
 			},
 		},
 		{
@@ -158,6 +209,7 @@ func TestEngine(t *testing.T) {
 			expected: Results{
 				Created: []provider.Record{
 					{Name: "api", Type: "CNAME", Data: "reroute.com", TTL: 3600},
+					{Name: "api", Type: "TXT", Data: "heritage=caddy-dns-sync,caddy-dns-sync/owner=test-owner"},
 				},
 			},
 		},
@@ -182,6 +234,7 @@ func TestEngine(t *testing.T) {
 			config: &config.Config{
 				Reconcile: config.Reconcile{
 					DryRun: true,
+					Owner: "test-owner",
 				},
 				DNS: config.DNS{
 					Zones: []string{"example.com"},
@@ -190,6 +243,7 @@ func TestEngine(t *testing.T) {
 			expected: Results{
 				Created: []provider.Record{
 					{Name: "dryrun", Type: "A", Data: "192.168.1.1", TTL: 3600},
+					{Name: "dryrun", Type: "TXT", Data: "heritage=caddy-dns-sync,caddy-dns-sync/owner=test-owner"},
 				},
 			},
 		},
@@ -208,7 +262,7 @@ func TestEngine(t *testing.T) {
 				err:     tt.providerError,
 			}
 
-            metrics := metrics.New(false)
+			metrics := metrics.New(false)
 			engine := NewEngine(stateManager, provider, tt.config, metrics)
 			results, err := engine.Reconcile(ctx, tt.currentDomains)
 
