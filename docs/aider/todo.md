@@ -10,6 +10,7 @@
 - [ ] Add health check endpoints
 - [ ] Add retry logic with exponential backoff
 - [ ] Add Caddy API authentication support
+- [ ] Add option to force delete/cleanup all created records
 
 ## Medium Priority
 
