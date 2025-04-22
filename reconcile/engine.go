@@ -185,7 +185,7 @@ func (e *engine) generatePlan(ctx context.Context, changes state.StateChanges) (
 			recordName := getRecordName(host, zone)
 			recordType := getRecordType(host)
 			if e.isProtected(recordName) {
-				slog.Warn("Skipping protected record", "name", recordName, "zone", zone, "record_type", recordType)
+				slog.Info("Skipping delete protected record", "name", recordName, "zone", zone, "record_type", recordType)
 				continue
 			}
 
@@ -193,6 +193,8 @@ func (e *engine) generatePlan(ctx context.Context, changes state.StateChanges) (
 			if record, exists := recordMap[recordName]; exists {
 				// But only delete if we manage it, confirmed by checking existance of txt record
 				if _, txtExists := managedTXTRecords[recordName]; !txtExists {
+					slog.Warn("Skipping delete record without associated owned TXT record", "name", recordName, "zone", zone, "record_type", recordType)
+					e.metrics.IncDNSOperation("skip", zone, recordType)
 					continue
 				}
 				plan.Delete = append(plan.Delete, record)

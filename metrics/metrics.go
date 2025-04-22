@@ -81,7 +81,7 @@ func boolToStr(b bool) string {
 
 func isValidOperation(op string) bool {
 	switch op {
-	case "create", "read", "update", "delete":
+	case "create", "read", "update", "delete", "skip":
 		return true
 	}
 	return false
