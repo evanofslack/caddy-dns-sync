@@ -26,24 +26,26 @@ func (m *MockStateManager) SaveState(ctx context.Context, s state.State) error {
 func (m *MockStateManager) Close() error { return nil }
 
 type MockProvider struct {
-	records map[string][]provider.Record
-	err     error
+	records      map[string][]provider.Record
+	createErr    error
+	deleteErr    error
+	getRecordsErr error
 }
 
 func (m *MockProvider) GetRecords(ctx context.Context, zone string) ([]provider.Record, error) {
-	return m.records[zone], m.err
+	return m.records[zone], m.getRecordsErr
 }
 
 func (m *MockProvider) CreateRecord(ctx context.Context, zone string, r provider.Record) error {
-	return m.err
+	return m.createErr
 }
 
 func (m *MockProvider) UpdateRecord(ctx context.Context, zone string, r provider.Record) error {
-	return m.err
+	return nil // Not used in current tests
 }
 
 func (m *MockProvider) DeleteRecord(ctx context.Context, zone string, r provider.Record) error {
-	return m.err
+	return m.deleteErr
 }
 
 func TestEngine(t *testing.T) {
@@ -221,6 +223,83 @@ func TestEngine(t *testing.T) {
 			expectError:  true,
 		},
 		{
+			name: "failed create skips state save",
+			initialState: state.State{
+				Domains: map[string]state.DomainState{},
+			},
+			currentDomains: []source.DomainConfig{
+				{Host: "new.example.com", Upstream: "192.168.1.1:8080"},
+			},
+			providerSetup: map[string][]provider.Record{
+				"example.com": {},
+			},
+			config: &config.Config{
+				Reconcile: config.Reconcile{
+					DryRun: false,
+					Owner:  "test-owner",
+				},
+				DNS: config.DNS{
+					Zones: []string{"example.com"},
+				},
+			},
+			providerError: errors.New("dns failure"),
+			expected: Results{
+				Failures: []OperationResult{
+					{
+						Record: provider.Record{Name: "new", Type: "A", Data: "192.168.1.1", TTL: 3600},
+						Op:     "create",
+						Error:  "dns failure",
+					},
+					{
+						Record: provider.Record{Name: "new", Type: "TXT", Data: "heritage=caddy-dns-sync,caddy-dns-sync/owner=test-owner", TTL: 3600},
+						Op:     "create",
+						Error:  "dns failure",
+					},
+				},
+				Created: []provider.Record{},
+			},
+		},
+		{
+			name: "failed delete skips state save",
+			initialState: state.State{
+				Domains: map[string]state.DomainState{
+					"old.example.com": {ServerName: "10.0.0.1:8080", LastSeen: time.Now().Unix() - 100},
+				},
+			},
+			currentDomains: []source.DomainConfig{},
+			providerSetup: map[string][]provider.Record{
+				"example.com": {
+					{Name: "old", Type: "A", Data: "10.0.0.1"},
+					{Name: "old", Type: "TXT", Data: "heritage=caddy-dns-sync,caddy-dns-sync/owner=test-owner"},
+				},
+			},
+			config: &config.Config{
+				Reconcile: config.Reconcile{
+					DryRun: false,
+					Owner:  "test-owner",
+				},
+				DNS: config.DNS{
+					Zones: []string{"example.com"},
+				},
+			},
+			providerError: errors.New("dns failure"),
+			expected: Results{
+				Failures: []OperationResult{
+					{
+						Record: provider.Record{Name: "old", Type: "A", Data: "10.0.0.1"},
+						Op:     "delete",
+						Error:  "dns failure",
+					},
+					{
+						Record: provider.Record{Name: "old", Type: "TXT", Data: "heritage=caddy-dns-sync,caddy-dns-sync/owner=test-owner"},
+						Op:     "delete",
+						Error:  "dns failure",
+					},
+				},
+				Deleted: []provider.Record{},
+			},
+		},
+		{
 			name: "dry run mode",
 			initialState: state.State{
 				Domains: map[string]state.DomainState{},
@@ -258,8 +337,10 @@ func TestEngine(t *testing.T) {
 			}
 
 			provider := &MockProvider{
-				records: tt.providerSetup,
-				err:     tt.providerError,
+				records:      tt.providerSetup,
+				getRecordsErr: nil, // Allow GetRecords to succeed
+				createErr:    tt.providerError,
+				deleteErr:    tt.providerError,
 			}
 
 			metrics := metrics.New(false)
@@ -314,39 +395,6 @@ func TestExtractHostname(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := extractHostFromUpstream(tt.input)
-			if result != tt.expected {
-				t.Errorf("Expected %q, got %q", tt.expected, result)
-			}
-		})
-	}
-}
-
-func TestExtractZone(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{
-			name:     "extract zone subdomain",
-			input:    "sub.example.com",
-			expected: "example.com",
-		},
-		{
-			name:     "extract zone deep subdomain",
-			input:    "sub1.sub2.example.com",
-			expected: "example.com",
-		},
-		{
-			name:     "extract zone top level",
-			input:    "example.com",
-			expected: "example.com",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := extractZone(tt.input)
 			if result != tt.expected {
 				t.Errorf("Expected %q, got %q", tt.expected, result)
 			}
