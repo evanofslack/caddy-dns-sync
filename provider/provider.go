@@ -1,17 +1,17 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"net/netip"
 	"time"
-    "context"
 
 	"github.com/libdns/libdns"
 )
 
 type Provider interface {
 	GetRecords(ctx context.Context, zone string) ([]Record, error)
-	CreateRecord(ctx context.Context, zone string, record Record) error 
+	CreateRecord(ctx context.Context, zone string, record Record) error
 	UpdateRecord(ctx context.Context, zone string, record Record) error
 	DeleteRecord(ctx context.Context, zone string, record Record) error
 }
@@ -20,16 +20,18 @@ type Record struct {
 	Name string
 	Type string
 	Data string
+	Zone string
 	TTL  time.Duration
 }
 
-func FromLibdns(r libdns.Record) Record {
+func FromLibdns(r libdns.Record, zone string) Record {
 	rr := r.RR()
 	record := Record{
 		Name: rr.Name,
 		Type: rr.Type,
 		Data: rr.Data,
 		TTL:  rr.TTL,
+		Zone: zone,
 	}
 	return record
 }

@@ -48,7 +48,7 @@ func (p *CloudflareProvider) GetRecords(ctx context.Context, zone string) ([]pro
 
 	var result []provider.Record
 	for _, r := range records {
-		result = append(result, provider.FromLibdns(r))
+		result = append(result, provider.FromLibdns(r, zone))
 	}
 	p.metrics.IncDNSRequest("read", zone, true)
 	return result, nil

@@ -124,10 +124,10 @@ func (e *engine) generatePlan(ctx context.Context, changes state.StateChanges) (
 		recordMap := make(map[string]provider.Record)
 		managedTXTRecords := make(map[string]provider.Record)
 		for _, r := range records {
+			slog.Debug("Got record", "name", r.Name, "type", r.Type)
 			switch r.Type {
 			case "A", "CNAME":
 				recordMap[r.Name] = r
-				slog.Debug("Got record", "name", r.Name, "type", r.Type)
 			case "TXT":
 				if strings.HasPrefix(r.Data, "heritage=caddy-dns-sync") && strings.Contains(r.Data, "caddy-dns-sync/owner="+e.cfg.Reconcile.Owner) {
 					managedTXTRecords[r.Name] = r
@@ -154,6 +154,7 @@ func (e *engine) generatePlan(ctx context.Context, changes state.StateChanges) (
 				Type: recordType,
 				Data: host,
 				TTL:  3600, // TODO: This should be configurable
+				Zone: zone,
 			}
 			plan.Create = append(plan.Create, mainRecord)
 			e.metrics.IncDNSOperation("create", zone, recordType)
@@ -164,6 +165,7 @@ func (e *engine) generatePlan(ctx context.Context, changes state.StateChanges) (
 				Type: "TXT",
 				Data: fmt.Sprintf("heritage=caddy-dns-sync,caddy-dns-sync/owner=%s", e.cfg.Reconcile.Owner),
 				TTL:  3600,
+				Zone: zone,
 			}
 			plan.Create = append(plan.Create, txtRecord)
 			e.metrics.IncDNSOperation("create", zone, "TXT")
@@ -226,10 +228,10 @@ func (e *engine) executePlan(ctx context.Context, plan Plan, newState state.Stat
 
 	// Execute creates
 	for _, record := range plan.Create {
+		slog.Info("Start execute create from plan", "name", record.Name, "type", record.Type, "data", record.Data, "zone", record.Zone)
 		// Get zone from record
-		zone := extractZone(record.Name)
 
-		if err := e.dnsProvider.CreateRecord(ctx, zone, record); err != nil {
+		if err := e.dnsProvider.CreateRecord(ctx, record.Zone, record); err != nil {
 			slog.Error("Failed to create record", "name", record.Name, "error", err)
 			results.Failures = append(results.Failures, OperationResult{
 				Record: record,
@@ -243,9 +245,9 @@ func (e *engine) executePlan(ctx context.Context, plan Plan, newState state.Stat
 
 	// Execute deletes
 	for _, record := range plan.Delete {
-		zone := extractZone(record.Name)
+		slog.Info("Start execute delete from plan", "name", record.Name, "type", record.Type, "data", record.Data, "zone", record.Zone)
 
-		if err := e.dnsProvider.DeleteRecord(ctx, zone, record); err != nil {
+		if err := e.dnsProvider.DeleteRecord(ctx, record.Zone, record); err != nil {
 			slog.Error("Failed to delete record", "name", record.Name, "error", err)
 			results.Failures = append(results.Failures, OperationResult{
 				Record: record,
@@ -303,12 +305,4 @@ func extractHostFromUpstream(upstream string) string {
 		return upstream
 	}
 	return host
-}
-
-func extractZone(recordName string) string {
-	parts := strings.Split(recordName, ".")
-	if len(parts) < 2 {
-		return recordName
-	}
-	return strings.Join(parts[len(parts)-2:], ".")
 }
