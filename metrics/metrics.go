@@ -11,19 +11,19 @@ type Metrics struct {
 	registry *prometheus.Registry
 
 	// Synchronization metrics
-	syncRunsTotal       *prometheus.CounterVec
-	syncDurationSeconds prometheus.Histogram
+	syncRuns       *prometheus.CounterVec
+	syncDuration prometheus.Histogram
 
 	// DNS operation metrics
-	dnsChangesTotal        *prometheus.CounterVec
-	dnsProviderErrorsTotal *prometheus.CounterVec
+	dnsChanges        *prometheus.CounterVec
+	dnsProviderErrors *prometheus.CounterVec
 
 	// State management metrics
-	stateChangesTotal *prometheus.CounterVec
+	stateChanges *prometheus.CounterVec
 	stateSizeBytes    prometheus.Gauge
 
 	// Caddy interaction metrics
-	caddyFetchesTotal      *prometheus.CounterVec
+	caddyFetches      *prometheus.CounterVec
 	caddyDomainsDiscovered prometheus.Gauge
 
 	// Reconciliation metrics
@@ -38,32 +38,32 @@ func NewMetrics() *Metrics {
 	m := &Metrics{
 		registry: registry,
 
-		syncRunsTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
+		syncRuns: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: namespace,
 			Name:      "sync_runs_total",
 			Help:      "Total number of synchronization runs",
 		}, []string{"status", "dry_run"}),
 
-		syncDurationSeconds: prometheus.NewHistogram(prometheus.HistogramOpts{
+		syncDuration: prometheus.NewHistogram(prometheus.HistogramOpts{
 			Namespace: namespace,
-			Name:      "sync_duration_seconds",
-			Help:      "Duration of synchronization runs in seconds",
+			Name:      "sync_duration_milliseconds",
+			Help:      "Duration of synchronization runs in milliseconds",
 			Buckets:   prometheus.DefBuckets,
 		}),
 
-		dnsChangesTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
+		dnsChanges: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: namespace,
 			Name:      "dns_changes_total",
 			Help:      "Total DNS record changes by operation type",
 		}, []string{"operation", "zone", "record_type", "status"}),
 
-		dnsProviderErrorsTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
+		dnsProviderErrors: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: namespace,
 			Name:      "dns_provider_errors_total",
 			Help:      "Total DNS provider errors by error type",
 		}, []string{"error_type"}),
 
-		stateChangesTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
+		stateChanges: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: namespace,
 			Name:      "state_changes_total",
 			Help:      "Total state persistence operations",
@@ -75,7 +75,7 @@ func NewMetrics() *Metrics {
 			Help:      "Size of persisted state in bytes",
 		}),
 
-		caddyFetchesTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
+		caddyFetches: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: namespace,
 			Name:      "caddy_config_fetches_total",
 			Help:      "Total Caddy config fetch attempts",
@@ -102,13 +102,13 @@ func NewMetrics() *Metrics {
 	}
 
 	registry.MustRegister(
-		m.syncRunsTotal,
-		m.syncDurationSeconds,
-		m.dnsChangesTotal,
-		m.dnsProviderErrorsTotal,
-		m.stateChangesTotal,
+		m.syncRuns,
+		m.syncDuration,
+		m.dnsChanges,
+		m.dnsProviderErrors,
+		m.stateChanges,
 		m.stateSizeBytes,
-		m.caddyFetchesTotal,
+		m.caddyFetches,
 		m.caddyDomainsDiscovered,
 		m.pendingChanges,
 		m.reconciliationLatency,
