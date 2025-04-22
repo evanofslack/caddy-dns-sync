@@ -10,6 +10,7 @@ import (
 const (
 	defaultSyncInterval = time.Minute
 	defaultStatePath    = "caddy-sync-dns.db"
+	defaultOwner        = "default"
 )
 
 type Config struct {
@@ -34,6 +35,7 @@ type DNS struct {
 type Reconcile struct {
 	DryRun           bool     `yaml:"dryRun"`
 	ProtectedRecords []string `yaml:"protectedRecords"`
+	Owner            string   `yaml:"owner"`
 }
 
 func Load(path string) (*Config, error) {
@@ -55,6 +57,10 @@ func Load(path string) (*Config, error) {
 
 	if cfg.StatePath == "" {
 		cfg.StatePath = defaultStatePath
+	}
+
+	if cfg.Reconcile.Owner == "" {
+		cfg.Reconcile.Owner = defaultOwner
 	}
 
 	// Override token from environment if set

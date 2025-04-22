@@ -1,12 +1,12 @@
 package reconcile
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net"
 	"strings"
 	"time"
-	"context"
 
 	"github.com/evanofslack/caddy-dns-sync/config"
 	"github.com/evanofslack/caddy-dns-sync/metrics"
@@ -26,9 +26,10 @@ type engine struct {
 	protected    map[string]bool
 	zones        []string
 	metrics      *metrics.Metrics
+	cfg          *config.Config
 }
 
-func NewEngine(sm state.Manager, dp provider.Provider, cfg *config.Config) *engine {
+func NewEngine(sm state.Manager, dp provider.Provider, cfg *config.Config, metrics *metrics.Metrics) *engine {
 	protected := make(map[string]bool)
 	for _, r := range cfg.Reconcile.ProtectedRecords {
 		protected[r] = true
@@ -40,6 +41,7 @@ func NewEngine(sm state.Manager, dp provider.Provider, cfg *config.Config) *engi
 		protected:    protected,
 		zones:        cfg.DNS.Zones,
 		metrics:      metrics,
+		cfg:          cfg,
 	}
 }
 
@@ -127,10 +129,16 @@ func (e *engine) generatePlan(ctx context.Context, changes state.StateChanges) (
 		slog.Info("Got records from dns provider", "count", len(records))
 
 		recordMap := make(map[string]provider.Record)
+		managedTXTRecords := make(map[string]provider.Record)
 		for _, r := range records {
-			if r.Type == "A" || r.Type == "CNAME" {
+			switch r.Type {
+			case "A", "CNAME":
 				recordMap[r.Name] = r
-                slog.Debug("Got record", "name", r.Name, "type", r.Type)
+				slog.Debug("Got record", "name", r.Name, "type", r.Type)
+			case "TXT":
+				if strings.HasPrefix(r.Data, "heritage=caddy-dns-sync") && strings.Contains(r.Data, "caddy-dns-sync/owner="+e.cfg.Reconcile.Owner) {
+					managedTXTRecords[r.Name] = r
+				}
 			}
 		}
 
@@ -146,12 +154,26 @@ func (e *engine) generatePlan(ctx context.Context, changes state.StateChanges) (
 				continue
 			}
 
-			plan.Create = append(plan.Create, provider.Record{
+			host := extractHostFromUpstream(domain.Upstream)
+			recordType := getRecordType(host)
+			mainRecord := provider.Record{
 				Name: recordName,
-				Type: getRecordType(extractHostFromUpstream(domain.Upstream)),
-				Data: extractHostFromUpstream(domain.Upstream),
-				TTL:  3600, // This should be configurable
-			})
+				Type: recordType,
+				Data: host,
+				TTL:  3600, // TODO: This should be configurable
+			}
+			plan.Create = append(plan.Create, mainRecord)
+			e.metrics.IncDNSOperation("create", zone, recordType)
+
+			// Add managed TXT record
+			txtRecord := provider.Record{
+				Name: recordName,
+				Type: "TXT",
+				Data: fmt.Sprintf("heritage=caddy-dns-sync,caddy-dns-sync/owner=%s", e.cfg.Reconcile.Owner),
+				TTL:  3600,
+			}
+			plan.Create = append(plan.Create, txtRecord)
+			e.metrics.IncDNSOperation("create", zone, "TXT")
 		}
 
 		// Process removals
@@ -161,13 +183,26 @@ func (e *engine) generatePlan(ctx context.Context, changes state.StateChanges) (
 			}
 
 			recordName := getRecordName(host, zone)
+			recordType := getRecordType(host)
 			if e.isProtected(recordName) {
-				slog.Warn("Skipping protected record", "name", recordName, "zone", zone)
+				slog.Warn("Skipping protected record", "name", recordName, "zone", zone, "record_type", recordType)
 				continue
 			}
 
+			// If entry has been removed and associated DNS record exists, plan to delete it
 			if record, exists := recordMap[recordName]; exists {
+				// But only delete if we manage it, confirmed by checking existance of txt record
+				if _, txtExists := managedTXTRecords[recordName]; !txtExists {
+					continue
+				}
 				plan.Delete = append(plan.Delete, record)
+				e.metrics.IncDNSOperation("delete", zone, recordType)
+			}
+
+			// Delete associated TXT record if managed
+			if txtRecord, exists := managedTXTRecords[recordName]; exists {
+				plan.Delete = append(plan.Delete, txtRecord)
+				e.metrics.IncDNSOperation("delete", zone, "TXT")
 			}
 		}
 	}
