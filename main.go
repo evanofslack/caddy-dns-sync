@@ -23,7 +23,7 @@ func main() {
 	slog.SetDefault(logger)
 
 	// Initialize metrics
-	metrics := metrics.NewMetrics()
+	metrics := metrics.New(true)
 
 	// Set up HTTP server for metrics and health checks
 	mux := http.NewServeMux()
@@ -52,16 +52,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	stateManager, err := state.New(cfg.StatePath)
+	stateManager, err := state.New(cfg.StatePath, metrics)
 	if err != nil {
 		slog.Error("Failed to initialize state manager", "error", err)
 		os.Exit(1)
 	}
 	defer stateManager.Close()
 
-	caddyClient := caddy.New(cfg.Caddy.AdminURL)
+	caddyClient := caddy.New(cfg.Caddy.AdminURL, metrics)
 
-	cf, err := cloudflare.New(cfg.DNS)
+	cf, err := cloudflare.New(cfg.DNS, metrics)
 	if err != nil {
 		slog.Error("Failed to initialize DNS provider", "error", err)
 		os.Exit(1)
