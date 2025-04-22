@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/evanofslack/caddy-dns-sync/config"
+	"github.com/evanofslack/caddy-dns-sync/metrics"
 	"github.com/evanofslack/caddy-dns-sync/provider/cloudflare"
 	"github.com/evanofslack/caddy-dns-sync/reconcile"
 	"github.com/evanofslack/caddy-dns-sync/source/caddy"
@@ -20,14 +22,45 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
+	// Initialize metrics
+	metrics := metrics.NewMetrics()
+
+	// Set up HTTP server for metrics and health checks
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", metrics.Handler())
+
+	server := &http.Server{
+		Addr:    ":9090",
+		Handler: mux,
+	}
+
+	// Start metrics server in background
+	go func() {
+		slog.Info("Starting metrics server", "address", server.Addr)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("Metrics server failed", "error", err)
+		}
+	}()
+
+	// Graceful shutdown handling
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	cfg, err := config.Load("config.yaml")
 	if err != nil {
 		slog.Error("Failed to load config", "error", err)
 		os.Exit(1)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	// Ensure graceful shutdown of server
+	defer func() {
+		slog.Info("Shutting down metrics server")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			slog.Error("Metrics server shutdown error", "error", err)
+		}
+	}()
 
 	stateManager, err := state.New(cfg.StatePath)
 	if err != nil {
