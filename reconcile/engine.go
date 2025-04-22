@@ -163,7 +163,7 @@ func (e *engine) generatePlan(ctx context.Context, changes state.StateChanges) (
 			txtRecord := provider.Record{
 				Name: recordName,
 				Type: "TXT",
-				Data: fmt.Sprintf("heritage=caddy-dns-sync,caddy-dns-sync/owner=%s", e.cfg.Reconcile.Owner),
+                Data: fmt.Sprintf("\"heritage=caddy-dns-sync,caddy-dns-sync/owner=%s\"", e.cfg.Reconcile.Owner),
 				TTL:  3600,
 				Zone: zone,
 			}
