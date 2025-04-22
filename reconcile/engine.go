@@ -74,16 +74,9 @@ func (e *engine) Reconcile(ctx context.Context, domains []source.DomainConfig) (
 		return Results{}, fmt.Errorf("generate plan: %w", err)
 	}
 
-	results, err := e.executePlan(ctx, plan)
+	results, err := e.executePlan(ctx, plan, currentState)
 	if err != nil {
 		return results, fmt.Errorf("execute plan: %w", err)
-	}
-
-	// Save new state
-	if !e.dryRun {
-		if err := e.stateManager.SaveState(ctx, currentState); err != nil {
-			return results, fmt.Errorf("save state: %w", err)
-		}
 	}
 
 	return results, nil
@@ -211,7 +204,7 @@ func (e *engine) generatePlan(ctx context.Context, changes state.StateChanges) (
 	return plan, nil
 }
 
-func (e *engine) executePlan(ctx context.Context, plan Plan) (Results, error) {
+func (e *engine) executePlan(ctx context.Context, plan Plan, newState state.State) (Results, error) {
 	results := Results{}
 
 	if e.dryRun {
@@ -221,6 +214,11 @@ func (e *engine) executePlan(ctx context.Context, plan Plan) (Results, error) {
 		results.Created = make([]provider.Record, len(plan.Create))
 		copy(results.Created, plan.Create)
 
+		results.Deleted = make([]provider.Record, len(plan.Delete))
+		copy(results.Deleted, plan.Delete)
+		// In dry-run mode, return early without saving state
+		results.Created = make([]provider.Record, len(plan.Create))
+		copy(results.Created, plan.Create)
 		results.Deleted = make([]provider.Record, len(plan.Delete))
 		copy(results.Deleted, plan.Delete)
 		return results, nil
@@ -257,6 +255,15 @@ func (e *engine) executePlan(ctx context.Context, plan Plan) (Results, error) {
 		} else {
 			results.Deleted = append(results.Deleted, record)
 		}
+	}
+
+	// Only persist state if all operations succeeded
+	if len(results.Failures) == 0 {
+		if err := e.stateManager.SaveState(ctx, newState); err != nil {
+			return results, fmt.Errorf("save state: %w", err)
+		}
+	} else {
+		slog.Warn("Not persisting state due to failed operations", "failures", len(results.Failures))
 	}
 
 	return results, nil
