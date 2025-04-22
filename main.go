@@ -52,15 +52,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Ensure graceful shutdown of server
-	defer func() {
-		slog.Info("Shutting down metrics server")
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := server.Shutdown(shutdownCtx); err != nil {
-			slog.Error("Metrics server shutdown error", "error", err)
-		}
-	}()
 
 	stateManager, err := state.New(cfg.StatePath)
 	if err != nil {
@@ -92,6 +83,15 @@ func main() {
 
 	slog.Info("Shutdown signal received")
 	cancel()
+	
+	// Shutdown server with same context
+	serverShutdownCtx, cancelServer := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelServer()
+	if err := server.Shutdown(serverShutdownCtx); err != nil {
+		slog.Error("Metrics server shutdown error", "error", err)
+	}
+
+	// Wait for sync loop to finish
 	wg.Wait()
 	slog.Info("Service shutdown complete")
 }
