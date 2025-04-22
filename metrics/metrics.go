@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -14,6 +15,7 @@ type Metrics struct {
 	syncDuration   prometheus.Histogram   // time to sync
 	dnsRecords     *prometheus.GaugeVec   // known dns records
 	dnsRequests    *prometheus.CounterVec // dns provider requests
+	caddyEntries   *prometheus.GaugeVec   // known caddy entries
 	caddyRequests  *prometheus.CounterVec // caddy requests
 	badgerRequests *prometheus.CounterVec // badgerdb requests
 }
@@ -28,12 +30,12 @@ func (m *Metrics) SetSyncDuration(duration time.Duration) {
 	m.syncDuration.Observe(duration.Seconds())
 }
 
-func (m *Metrics) SetDNSRecords(count int, operation, zone, recordType string, managed bool) {
-	if !isValidOperation(operation) || !isValidRecordType(recordType) || zone == "" {
+func (m *Metrics) SetDNSRecords(count int, zone, recordType string, managed bool) {
+	if !isValidRecordType(recordType) || zone == "" {
 		return
 	}
-	status := boolToManaged(managed)
-	m.dnsRecords.WithLabelValues(operation, zone, recordType, status).Set(float64(count))
+	status := boolToStr(managed)
+	m.dnsRecords.WithLabelValues(zone, recordType, status).Set(float64(count))
 }
 
 func (m *Metrics) IncDNSRequest(operation, zone string, success bool) {
@@ -44,12 +46,18 @@ func (m *Metrics) IncDNSRequest(operation, zone string, success bool) {
 	m.dnsRequests.WithLabelValues(operation, zone, status).Inc()
 }
 
-func (m *Metrics) IncCaddyRequest(success bool) {
-	status := boolToResult(success)
-	m.caddyRequests.WithLabelValues(status).Inc()
+func (m *Metrics) SetCaddyEntries(count int, rp bool) {
+	rpstr := boolToStr(rp)
+	m.caddyEntries.WithLabelValues(rpstr).Set(float64(count))
 }
 
-func (m *Metrics) IncBadgerRequest(success bool) {
+func (m *Metrics) IncCaddyRequest(success bool, code int) {
+	status := boolToResult(success)
+	scode := strconv.Itoa(code)
+	m.caddyRequests.WithLabelValues(status, scode).Inc()
+}
+
+func (m *Metrics) IncBadgerRequest(operation string, success bool) {
 	status := boolToResult(success)
 	m.badgerRequests.WithLabelValues(status).Inc()
 }
@@ -62,7 +70,7 @@ func boolToResult(b bool) string {
 	return "failure"
 }
 
-func boolToManaged(b bool) string {
+func boolToStr(b bool) string {
 	if b {
 		return "true"
 	}
@@ -85,7 +93,7 @@ func isValidRecordType(rt string) bool {
 	return false
 }
 
-func NewMetrics() *Metrics {
+func New(register bool) *Metrics {
 	registry := prometheus.NewRegistry()
 	namespace := "caddy_dns_sync"
 
@@ -109,7 +117,7 @@ func NewMetrics() *Metrics {
 			Namespace: namespace,
 			Name:      "dns_records_current",
 			Help:      "Current known DNS records",
-		}, []string{"operation", "zone", "type", "managed"}),
+		}, []string{"zone", "type", "managed"}),
 
 		dnsRequests: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: namespace,
@@ -117,11 +125,17 @@ func NewMetrics() *Metrics {
 			Help:      "Total DNS provider requests",
 		}, []string{"operation", "zone", "status"}),
 
+		caddyEntries: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: namespace,
+			Name:      "caddy_entries_current",
+			Help:      "Current known caddy entries",
+		}, []string{"reverse_proxy"}),
+
 		caddyRequests: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: namespace,
 			Name:      "caddy_requests_total",
 			Help:      "Total caddy requests",
-		}, []string{"status"}),
+		}, []string{"status", "code"}),
 
 		badgerRequests: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: namespace,
@@ -130,14 +144,17 @@ func NewMetrics() *Metrics {
 		}, []string{"status"}),
 	}
 
-	registry.MustRegister(
-		m.syncRuns,
-		m.syncDuration,
-		m.dnsRecords,
-		m.dnsRequests,
-		m.caddyRequests,
-		m.badgerRequests,
-	)
+	if register {
+		registry.MustRegister(
+			m.syncRuns,
+			m.syncDuration,
+			m.dnsRecords,
+			m.dnsRequests,
+			m.caddyEntries,
+			m.caddyRequests,
+			m.badgerRequests,
+		)
+	}
 	return m
 }
 
