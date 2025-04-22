@@ -2,33 +2,87 @@ package metrics
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type Metrics struct {
-	registry *prometheus.Registry
+	registry       *prometheus.Registry
+	syncRuns       *prometheus.CounterVec // total syncs
+	syncDuration   prometheus.Histogram   // time to sync
+	dnsRecords     *prometheus.GaugeVec   // known dns records
+	dnsRequests    *prometheus.CounterVec // dns provider requests
+	caddyRequests  *prometheus.CounterVec // caddy requests
+	badgerRequests *prometheus.CounterVec // badgerdb requests
+}
 
-	// Synchronization metrics
-	syncRuns       *prometheus.CounterVec
-	syncDuration prometheus.Histogram
+// Public interface for metrics operations
+func (m *Metrics) IncSyncRun(success bool) {
+	status := boolToResult(success)
+	m.syncRuns.WithLabelValues(status).Inc()
+}
 
-	// DNS operation metrics
-	dnsChanges        *prometheus.CounterVec
-	dnsProviderErrors *prometheus.CounterVec
+func (m *Metrics) SetSyncDuration(duration time.Duration) {
+	m.syncDuration.Observe(duration.Seconds())
+}
 
-	// State management metrics
-	stateChanges *prometheus.CounterVec
-	stateSizeBytes    prometheus.Gauge
+func (m *Metrics) SetDNSRecords(count int, operation, zone, recordType string, managed bool) {
+	if !isValidOperation(operation) || !isValidRecordType(recordType) || zone == "" {
+		return
+	}
+	status := boolToManaged(managed)
+	m.dnsRecords.WithLabelValues(operation, zone, recordType, status).Set(float64(count))
+}
 
-	// Caddy interaction metrics
-	caddyFetches      *prometheus.CounterVec
-	caddyDomainsDiscovered prometheus.Gauge
+func (m *Metrics) IncDNSRequest(operation, zone, recordType string, success bool) {
+	if !isValidOperation(operation) || !isValidRecordType(recordType) || zone == "" {
+		return
+	}
+	status := boolToResult(success)
+	m.dnsRequests.WithLabelValues(operation, zone, recordType, status).Inc()
+}
 
-	// Reconciliation metrics
-	pendingChanges        prometheus.Gauge
-	reconciliationLatency prometheus.Histogram
+func (m *Metrics) IncCaddyRequest(success bool) {
+	status := boolToResult(success)
+	m.caddyRequests.WithLabelValues(status).Inc()
+}
+
+func (m *Metrics) IncBadgerRequest(success bool) {
+	status := boolToResult(success)
+	m.badgerRequests.WithLabelValues(status).Inc()
+}
+
+// Validation helpers
+func boolToResult(b bool) string {
+	if b {
+		return "success"
+	}
+	return "failure"
+}
+
+func boolToManaged(b bool) string {
+	if b {
+		return "true"
+	}
+	return "false"
+}
+
+func isValidOperation(op string) bool {
+	switch op {
+	case "create", "update", "delete":
+		return true
+	}
+	return false
+}
+
+func isValidRecordType(rt string) bool {
+	switch rt {
+	case "A", "CNAME", "TXT":
+		return true
+	}
+	return false
 }
 
 func NewMetrics() *Metrics {
@@ -42,7 +96,7 @@ func NewMetrics() *Metrics {
 			Namespace: namespace,
 			Name:      "sync_runs_total",
 			Help:      "Total number of synchronization runs",
-		}, []string{"status", "dry_run"}),
+		}, []string{"status"}),
 
 		syncDuration: prometheus.NewHistogram(prometheus.HistogramOpts{
 			Namespace: namespace,
@@ -51,69 +105,39 @@ func NewMetrics() *Metrics {
 			Buckets:   prometheus.DefBuckets,
 		}),
 
-		dnsChanges: prometheus.NewCounterVec(prometheus.CounterOpts{
+		dnsRecords: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: namespace,
-			Name:      "dns_changes_total",
-			Help:      "Total DNS record changes by operation type",
+			Name:      "dns_records_current",
+			Help:      "Current known DNS records",
+		}, []string{"operation", "zone", "type", "managed"}),
+
+		dnsRequests: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "dns_requests_total",
+			Help:      "Total DNS provider requests",
 		}, []string{"operation", "zone", "record_type", "status"}),
 
-		dnsProviderErrors: prometheus.NewCounterVec(prometheus.CounterOpts{
+		caddyRequests: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: namespace,
-			Name:      "dns_provider_errors_total",
-			Help:      "Total DNS provider errors by error type",
-		}, []string{"error_type"}),
-
-		stateChanges: prometheus.NewCounterVec(prometheus.CounterOpts{
-			Namespace: namespace,
-			Name:      "state_changes_total",
-			Help:      "Total state persistence operations",
-		}, []string{"operation", "status"}),
-
-		stateSizeBytes: prometheus.NewGauge(prometheus.GaugeOpts{
-			Namespace: namespace,
-			Name:      "state_size_bytes",
-			Help:      "Size of persisted state in bytes",
-		}),
-
-		caddyFetches: prometheus.NewCounterVec(prometheus.CounterOpts{
-			Namespace: namespace,
-			Name:      "caddy_config_fetches_total",
-			Help:      "Total Caddy config fetch attempts",
+			Name:      "caddy_requests_total",
+			Help:      "Total caddy requests",
 		}, []string{"status"}),
 
-		caddyDomainsDiscovered: prometheus.NewGauge(prometheus.GaugeOpts{
+		badgerRequests: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: namespace,
-			Name:      "caddy_domains_discovered",
-			Help:      "Number of domains discovered in Caddy config",
-		}),
-
-		pendingChanges: prometheus.NewGauge(prometheus.GaugeOpts{
-			Namespace: namespace,
-			Name:      "pending_changes",
-			Help:      "Number of unprocessed configuration changes",
-		}),
-
-		reconciliationLatency: prometheus.NewHistogram(prometheus.HistogramOpts{
-			Namespace: namespace,
-			Name:      "reconciliation_latency_seconds",
-			Help:      "Time between config change and DNS update",
-			Buckets:   []float64{1, 5, 10, 30, 60, 120, 300},
-		}),
+			Name:      "badgerdb_requests_total",
+			Help:      "Total badgerdb requests",
+		}, []string{"status"}),
 	}
 
 	registry.MustRegister(
 		m.syncRuns,
 		m.syncDuration,
-		m.dnsChanges,
-		m.dnsProviderErrors,
-		m.stateChanges,
-		m.stateSizeBytes,
-		m.caddyFetches,
-		m.caddyDomainsDiscovered,
-		m.pendingChanges,
-		m.reconciliationLatency,
+		m.dnsRecords,
+		m.dnsRequests,
+		m.caddyRequests,
+		m.badgerRequests,
 	)
-
 	return m
 }
 
