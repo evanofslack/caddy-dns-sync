@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/evanofslack/caddy-dns-sync/metrics"
 	"github.com/evanofslack/caddy-dns-sync/source"
 )
 
@@ -24,6 +25,7 @@ func (m *MockHttpClient) Do(req *http.Request) (*http.Response, error) {
 
 func TestDomains(t *testing.T) {
 	adminURL := "http://localhost:2019"
+	metrics := metrics.New(false)
 
 	tests := []struct {
 		name           string
@@ -203,6 +205,7 @@ func TestDomains(t *testing.T) {
 			c := &client{
 				adminURL: adminURL,
 				http:     mockClient,
+				metrics:  metrics,
 			}
 
 			// Call the method being tested
