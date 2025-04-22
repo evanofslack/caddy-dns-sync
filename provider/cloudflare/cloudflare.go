@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/evanofslack/caddy-dns-sync/config"
+	"github.com/evanofslack/caddy-dns-sync/metrics"
 	"github.com/evanofslack/caddy-dns-sync/provider"
 	"github.com/libdns/cloudflare"
 	"github.com/libdns/libdns"
@@ -15,9 +16,10 @@ type CloudflareProvider struct {
 	provider string
 	ttl      int
 	cf       *cloudflare.Provider
+	metrics  *metrics.Metrics
 }
 
-func New(cfg config.DNS) (*CloudflareProvider, error) {
+func New(cfg config.DNS, metrics *metrics.Metrics) (*CloudflareProvider, error) {
 	p := &CloudflareProvider{
 		provider: cfg.Provider,
 		ttl:      cfg.TTL,
@@ -39,6 +41,7 @@ func (p *CloudflareProvider) GetRecords(ctx context.Context, zone string) ([]pro
 
 	records, err := p.cf.GetRecords(ctx, zone)
 	if err != nil {
+		p.metrics.IncDNSRequest("read", zone, false)
 		return nil, err
 	}
 
@@ -46,6 +49,7 @@ func (p *CloudflareProvider) GetRecords(ctx context.Context, zone string) ([]pro
 	for _, r := range records {
 		result = append(result, provider.FromLibdns(r))
 	}
+	p.metrics.IncDNSRequest("read", zone, true)
 	return result, nil
 }
 
@@ -54,17 +58,18 @@ func (p *CloudflareProvider) CreateRecord(ctx context.Context, zone string, reco
 
 	r, err := provider.ToLibdns(record)
 	if err != nil {
+		p.metrics.IncDNSRequest("create", zone, false)
 		return err
 	}
 	recs := []libdns.Record{r}
 
-	switch p.provider {
-	case "cloudflare":
-		_, err = p.cf.AppendRecords(ctx, zone, recs)
+	if _, err = p.cf.AppendRecords(ctx, zone, recs); err != nil {
+		p.metrics.IncDNSRequest("create", zone, false)
 		return err
-	default:
-		return fmt.Errorf("unsupported provider: %s", p.provider)
+
 	}
+	p.metrics.IncDNSRequest("create", zone, true)
+	return nil
 }
 
 func (p *CloudflareProvider) UpdateRecord(ctx context.Context, zone string, record provider.Record) error {
@@ -72,17 +77,18 @@ func (p *CloudflareProvider) UpdateRecord(ctx context.Context, zone string, reco
 
 	r, err := provider.ToLibdns(record)
 	if err != nil {
+		p.metrics.IncDNSRequest("update", zone, false)
 		return err
 	}
 	recs := []libdns.Record{r}
 
-	switch p.provider {
-	case "cloudflare":
-		_, err := p.cf.SetRecords(ctx, zone, recs)
+	if _, err := p.cf.SetRecords(ctx, zone, recs); err != nil {
+		p.metrics.IncDNSRequest("update", zone, false)
 		return err
-	default:
-		return fmt.Errorf("unsupported provider: %s", p.provider)
 	}
+
+	p.metrics.IncDNSRequest("update", zone, true)
+	return nil
 }
 
 func (p *CloudflareProvider) DeleteRecord(ctx context.Context, zone string, record provider.Record) error {
@@ -90,15 +96,16 @@ func (p *CloudflareProvider) DeleteRecord(ctx context.Context, zone string, reco
 
 	r, err := provider.ToLibdns(record)
 	if err != nil {
+		p.metrics.IncDNSRequest("delete", zone, false)
 		return err
 	}
 	recs := []libdns.Record{r}
 
-	switch p.provider {
-	case "cloudflare":
-		_, err := p.cf.DeleteRecords(ctx, zone, recs)
+	if _, err := p.cf.DeleteRecords(ctx, zone, recs); err != nil {
+		p.metrics.IncDNSRequest("delete", zone, false)
 		return err
-	default:
-		return fmt.Errorf("unsupported provider: %s", p.provider)
 	}
+
+	p.metrics.IncDNSRequest("delete", zone, true)
+	return nil
 }

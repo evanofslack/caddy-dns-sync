@@ -36,12 +36,12 @@ func (m *Metrics) SetDNSRecords(count int, operation, zone, recordType string, m
 	m.dnsRecords.WithLabelValues(operation, zone, recordType, status).Set(float64(count))
 }
 
-func (m *Metrics) IncDNSRequest(operation, zone, recordType string, success bool) {
-	if !isValidOperation(operation) || !isValidRecordType(recordType) || zone == "" {
+func (m *Metrics) IncDNSRequest(operation, zone string, success bool) {
+	if !isValidOperation(operation) || zone == "" {
 		return
 	}
 	status := boolToResult(success)
-	m.dnsRequests.WithLabelValues(operation, zone, recordType, status).Inc()
+	m.dnsRequests.WithLabelValues(operation, zone, status).Inc()
 }
 
 func (m *Metrics) IncCaddyRequest(success bool) {
@@ -71,7 +71,7 @@ func boolToManaged(b bool) string {
 
 func isValidOperation(op string) bool {
 	switch op {
-	case "create", "update", "delete":
+	case "create", "read", "update", "delete":
 		return true
 	}
 	return false
@@ -115,7 +115,7 @@ func NewMetrics() *Metrics {
 			Namespace: namespace,
 			Name:      "dns_requests_total",
 			Help:      "Total DNS provider requests",
-		}, []string{"operation", "zone", "record_type", "status"}),
+		}, []string{"operation", "zone", "status"}),
 
 		caddyRequests: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: namespace,
