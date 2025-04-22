@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/evanofslack/caddy-dns-sync/config"
+	"github.com/evanofslack/caddy-dns-sync/metrics"
 	"github.com/evanofslack/caddy-dns-sync/provider"
 	"github.com/evanofslack/caddy-dns-sync/source"
 	"github.com/evanofslack/caddy-dns-sync/state"
@@ -24,6 +25,7 @@ type engine struct {
 	dryRun       bool
 	protected    map[string]bool
 	zones        []string
+	metrics      *metrics.Metrics
 }
 
 func NewEngine(sm state.Manager, dp provider.Provider, cfg *config.Config) *engine {
@@ -37,6 +39,7 @@ func NewEngine(sm state.Manager, dp provider.Provider, cfg *config.Config) *engi
 		dryRun:       cfg.Reconcile.DryRun,
 		protected:    protected,
 		zones:        cfg.DNS.Zones,
+		metrics:      metrics,
 	}
 }
 

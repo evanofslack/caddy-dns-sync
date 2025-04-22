@@ -13,7 +13,7 @@ type Metrics struct {
 	registry       *prometheus.Registry
 	syncRuns       *prometheus.CounterVec // total syncs
 	syncDuration   prometheus.Histogram   // time to sync
-	dnsRecords     *prometheus.GaugeVec   // known dns records
+	dnsOperations  *prometheus.CounterVec // dns operations
 	dnsRequests    *prometheus.CounterVec // dns provider requests
 	caddyEntries   *prometheus.GaugeVec   // known caddy entries
 	caddyRequests  *prometheus.CounterVec // caddy requests
@@ -30,12 +30,11 @@ func (m *Metrics) SetSyncDuration(duration time.Duration) {
 	m.syncDuration.Observe(duration.Seconds())
 }
 
-func (m *Metrics) SetDNSRecords(count int, zone, recordType string, managed bool) {
-	if !isValidRecordType(recordType) || zone == "" {
+func (m *Metrics) IncDNSOperation(operation, zone, recordType string) {
+	if !isValidOperation(operation) || !isValidRecordType(recordType) || zone == "" {
 		return
 	}
-	status := boolToStr(managed)
-	m.dnsRecords.WithLabelValues(zone, recordType, status).Set(float64(count))
+	m.dnsOperations.WithLabelValues(operation, zone, recordType).Inc()
 }
 
 func (m *Metrics) IncDNSRequest(operation, zone string, success bool) {
@@ -58,8 +57,11 @@ func (m *Metrics) IncCaddyRequest(success bool, code int) {
 }
 
 func (m *Metrics) IncBadgerRequest(operation string, success bool) {
+	if !isValidOperation(operation) {
+		return
+	}
 	status := boolToResult(success)
-	m.badgerRequests.WithLabelValues(status).Inc()
+	m.badgerRequests.WithLabelValues(operation, status).Inc()
 }
 
 // Validation helpers
@@ -113,11 +115,11 @@ func New(register bool) *Metrics {
 			Buckets:   prometheus.DefBuckets,
 		}),
 
-		dnsRecords: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		dnsOperations: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: namespace,
-			Name:      "dns_records_current",
-			Help:      "Current known DNS records",
-		}, []string{"zone", "type", "managed"}),
+			Name:      "dns_operations_total",
+			Help:      "Total DNS operations managed by app",
+		}, []string{"operation", "zone", "type"}),
 
 		dnsRequests: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: namespace,
@@ -141,14 +143,14 @@ func New(register bool) *Metrics {
 			Namespace: namespace,
 			Name:      "badgerdb_requests_total",
 			Help:      "Total badgerdb requests",
-		}, []string{"status"}),
+		}, []string{"operation", "status"}),
 	}
 
 	if register {
 		registry.MustRegister(
 			m.syncRuns,
 			m.syncDuration,
-			m.dnsRecords,
+			m.dnsOperations,
 			m.dnsRequests,
 			m.caddyEntries,
 			m.caddyRequests,

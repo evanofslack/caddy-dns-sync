@@ -17,6 +17,8 @@ services:
   caddy-dns-sync:
     build: ../.
     container_name: caddy-dns-sync
+    ports:
+      - "8080:8080"
     environment:
       - CADDY_ADMIN_URL=http://caddy:2019
       - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN:-dummy-token}

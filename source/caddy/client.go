@@ -99,7 +99,7 @@ func (c *client) extractDomains(config Config) ([]source.DomainConfig, error) {
 
 func (c *client) processHandlers(parentHost string, handlers []Handler, domains *[]source.DomainConfig) {
 	for _, handler := range handlers {
-		slog.Default().Info("Processing handler", "handler", handler.Handler, "upstreams", handler.Upstreams)
+		slog.Default().Debug("Processing handler", "handler", handler.Handler, "upstreams", handler.Upstreams)
 
 		// Track current host context through nested routes
 		currentHost := parentHost

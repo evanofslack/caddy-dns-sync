@@ -10,6 +10,7 @@ import (
 	"github.com/evanofslack/caddy-dns-sync/provider"
 	"github.com/evanofslack/caddy-dns-sync/source"
 	"github.com/evanofslack/caddy-dns-sync/state"
+	"github.com/evanofslack/caddy-dns-sync/metrics"
 )
 
 type MockStateManager struct {
@@ -207,7 +208,8 @@ func TestEngine(t *testing.T) {
 				err:     tt.providerError,
 			}
 
-			engine := NewEngine(stateManager, provider, tt.config)
+            metrics := metrics.New(false)
+			engine := NewEngine(stateManager, provider, tt.config, metrics)
 			results, err := engine.Reconcile(ctx, tt.currentDomains)
 
 			if tt.expectError && err == nil {

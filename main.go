@@ -30,7 +30,7 @@ func main() {
 	mux.Handle("/metrics", metrics.Handler())
 
 	server := &http.Server{
-		Addr:    ":9090",
+		Addr:    ":8080",
 		Handler: mux,
 	}
 
@@ -67,7 +67,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	engine := reconcile.NewEngine(stateManager, cf, cfg)
+	engine := reconcile.NewEngine(stateManager, cf, cfg, metrics)
 
 	slog.Info("Starting caddy-dns-sync service")
 

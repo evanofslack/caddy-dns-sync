@@ -23,6 +23,7 @@ func New(cfg config.DNS, metrics *metrics.Metrics) (*CloudflareProvider, error) 
 	p := &CloudflareProvider{
 		provider: cfg.Provider,
 		ttl:      cfg.TTL,
+		metrics:  metrics,
 	}
 
 	token := cfg.Token
