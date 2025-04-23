@@ -8,7 +8,10 @@ dns:
   token: "" # Prefer CLOUDFLARE_API_TOKEN environment variable
   ttl: 300
 reconcile:
-  dryRun: false  # Don't create DNS records if true
+  dryRun: false # Don't create DNS records if true
   owner: "eslack"
   protectedRecords:
     - "example.eslack.com"
+log:
+  level: "debug"
+  env: "dev"

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Bluearchive/proxmox-api-go/cli/command/create"
 	"github.com/evanofslack/caddy-dns-sync/config"
 	"github.com/evanofslack/caddy-dns-sync/metrics"
 	"github.com/evanofslack/caddy-dns-sync/provider"
@@ -66,9 +67,9 @@ func (e *engine) Reconcile(ctx context.Context, domains []source.DomainConfig) (
 
 	// Compare states to find changes
 	changes := e.compareStates(currentState, prevState)
-	slog.Info("State comparison", "added", len(changes.Added), "removed", len(changes.Removed))
+	slog.Debug("State comparison", "added", len(changes.Added), "removed", len(changes.Removed))
 	if changes.IsEmpty() {
-		slog.Info("No caddy entry changes, ending reconciliation")
+		slog.Info("No state changes, ending reconciliation")
 		return Results{}, nil
 	}
 
@@ -166,7 +167,7 @@ func (e *engine) generatePlan(ctx context.Context, changes state.StateChanges) (
 			txtRecord := provider.Record{
 				Name: recordName,
 				Type: "TXT",
-				Data: fmt.Sprintf("\"heritage=caddy-dns-sync,caddy-dns-sync/owner=%s\"", e.cfg.Reconcile.Owner),
+                Data: createTxtData(e.cfg.Reconcile.Owner),
 				TTL:  3600,
 				Zone: zone,
 			}
@@ -201,6 +202,8 @@ func (e *engine) generatePlan(ctx context.Context, changes state.StateChanges) (
 
 			// Delete associated TXT record if managed
 			if txtRecord, exists := managedTXTRecords[recordName]; exists {
+			    // Set data to empty to match all data, we already know its correct
+			    txtRecord.Data = ""
 				plan.Delete = append(plan.Delete, txtRecord)
 				e.metrics.IncDNSOperation("delete", zone, "TXT")
 			}
@@ -317,4 +320,8 @@ func extractHostFromUpstream(upstream string) string {
 		return upstream
 	}
 	return host
+}
+
+func createTxtData(owner string) string {
+	return fmt.Sprintf("\"heritage=caddy-dns-sync,caddy-dns-sync/owner=%s\"", owner)
 }

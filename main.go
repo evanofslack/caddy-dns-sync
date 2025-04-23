@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/evanofslack/caddy-dns-sync/config"
+	"github.com/evanofslack/caddy-dns-sync/logger"
 	"github.com/evanofslack/caddy-dns-sync/metrics"
 	"github.com/evanofslack/caddy-dns-sync/provider/cloudflare"
 	"github.com/evanofslack/caddy-dns-sync/reconcile"
@@ -19,10 +20,14 @@ import (
 )
 
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	slog.SetDefault(logger)
+	cfg, err := config.Load("config.yaml")
+	if err != nil {
+		slog.Error("Failed to load config", "error", err)
+		os.Exit(1)
+	}
 
-	// Initialize metrics
+	logger.Configure(cfg.Log.Level, cfg.Log.Env)
+
 	metrics := metrics.New(true)
 
 	// Set up HTTP server for metrics and health checks
@@ -45,12 +50,6 @@ func main() {
 	// Graceful shutdown handling
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	cfg, err := config.Load("config.yaml")
-	if err != nil {
-		slog.Error("Failed to load config", "error", err)
-		os.Exit(1)
-	}
 
 	stateManager, err := state.New(cfg.StatePath, metrics)
 	if err != nil {

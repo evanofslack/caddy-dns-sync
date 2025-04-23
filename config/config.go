@@ -11,11 +11,14 @@ const (
 	defaultSyncInterval = time.Minute
 	defaultStatePath    = "caddy-sync-dns.db"
 	defaultOwner        = "default"
+	defaultLogLevel = "info"
+	defaultLogEnv = "prod"
 )
 
 type Config struct {
 	SyncInterval time.Duration `yaml:"syncInterval"`
 	StatePath    string        `yaml:"statePath"`
+	Log          Log           `yaml:"log"`
 	Caddy        Caddy         `yaml:"caddy"`
 	DNS          DNS           `yaml:"dns"`
 	Reconcile    Reconcile     `yaml:"reconcile"`
@@ -30,6 +33,11 @@ type DNS struct {
 	Zones    []string `yaml:"zones"`
 	Token    string   `yaml:"token"` // Value will be overridden by environment variable
 	TTL      int      `yaml:"ttl"`
+}
+
+type Log struct {
+	Level string `yaml:"level"`
+	Env   string `yaml:"env"`
 }
 
 type Reconcile struct {
@@ -62,6 +70,15 @@ func Load(path string) (*Config, error) {
 	if cfg.Reconcile.Owner == "" {
 		cfg.Reconcile.Owner = defaultOwner
 	}
+
+	// Set log defaults
+	if cfg.Log.Level == "" {
+		cfg.Log.Level = "info"
+	}
+	if cfg.Log.Env == "" {
+		cfg.Log.Env = "prod"
+	}
+
 
 	// Override token from environment if set
 	if token := os.Getenv("CLOUDFLARE_API_TOKEN"); token != "" {

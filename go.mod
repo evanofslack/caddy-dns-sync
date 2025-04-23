@@ -6,6 +6,7 @@ require (
 	github.com/dgraph-io/badger/v3 v3.2103.5
 	github.com/libdns/cloudflare v0.2.1
 	github.com/libdns/libdns v1.0.0-beta.1
+	github.com/lmittmann/tint v1.0.7
 	github.com/prometheus/client_golang v1.22.0
 	gopkg.in/yaml.v3 v3.0.1
 )
