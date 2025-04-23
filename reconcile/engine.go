@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Bluearchive/proxmox-api-go/cli/command/create"
 	"github.com/evanofslack/caddy-dns-sync/config"
 	"github.com/evanofslack/caddy-dns-sync/metrics"
 	"github.com/evanofslack/caddy-dns-sync/provider"
