@@ -72,6 +72,86 @@ func TestEngine(t *testing.T) {
 		expected       Results
 		expectError    bool
 	}{
+		// Existing test cases...
+		{
+			name: "multi-zone handling",
+			initialState: state.State{
+				Domains: map[string]state.DomainState{},
+			},
+			currentDomains: []source.DomainConfig{
+				{Host: "a.example.com", Upstream: "192.168.1.1:8080"},
+				{Host: "b.example.org", Upstream: "192.168.1.2:8080"},
+			},
+			providerSetup: map[string][]provider.Record{
+				"example.com": {},
+				"example.org": {},
+			},
+			config: &config.Config{
+				Reconcile: config.Reconcile{
+					DryRun:           false,
+					ProtectedRecords: []string{},
+					Owner:            "test-owner",
+				},
+				DNS: config.DNS{
+					Zones: []string{"example.com", "example.org"},
+				},
+			},
+			expected: Results{
+				Created: []provider.Record{
+					{Name: "a", Type: "A", Data: "192.168.1.1", TTL: 3600},
+					{Name: "a", Type: "TXT", Data: "heritage=caddy-dns-sync,caddy-dns-sync/owner=test-owner", TTL: 3600},
+					{Name: "b", Type: "A", Data: "192.168.1.2", TTL: 3600},
+					{Name: "b", Type: "TXT", Data: "heritage=caddy-dns-sync,caddy-dns-sync/owner=test-owner", TTL: 3600},
+				},
+			},
+		},
+		{
+			name: "modified domain with same host",
+			initialState: state.State{
+				Domains: map[string]state.DomainState{
+					"changed.example.com": {ServerName: "old.upstream:8080", LastSeen: now - 100},
+				},
+			},
+			currentDomains: []source.DomainConfig{
+				{Host: "changed.example.com", Upstream: "new.upstream:8080"},
+			},
+			providerSetup: map[string][]provider.Record{
+				"example.com": {
+					{Name: "changed", Type: "A", Data: "old.upstream"},
+					{Name: "changed", Type: "TXT", Data: "heritage=caddy-dns-sync,caddy-dns-sync/owner=test-owner"},
+				},
+			},
+			config: testConfig,
+			expected: Results{
+				Created: []provider.Record{
+					{Name: "changed", Type: "A", Data: "new.upstream", TTL: 3600},
+					{Name: "changed", Type: "TXT", Data: "heritage=caddy-dns-sync,caddy-dns-sync/owner=test-owner", TTL: 3600},
+				},
+				Deleted: []provider.Record{
+					{Name: "changed", Type: "A", Data: "old.upstream"},
+					{Name: "changed", Type: "TXT", Data: "heritage=caddy-dns-sync,caddy-dns-sync/owner=test-owner"},
+				},
+			},
+		},
+		{
+			name: "ipv6 address handling",
+			initialState: state.State{
+				Domains: map[string]state.DomainState{},
+			},
+			currentDomains: []source.DomainConfig{
+				{Host: "ipv6.example.com", Upstream: "[2001:db8::1]:8080"},
+			},
+			providerSetup: map[string][]provider.Record{
+				"example.com": {},
+			},
+			config: testConfig,
+			expected: Results{
+				Created: []provider.Record{
+					{Name: "ipv6", Type: "AAAA", Data: "2001:db8::1", TTL: 3600},
+					{Name: "ipv6", Type: "TXT", Data: "heritage=caddy-dns-sync,caddy-dns-sync/owner=test-owner", TTL: 3600},
+				},
+			},
+		},
 		{
 			name: "new domain creation",
 			initialState: state.State{
@@ -370,17 +450,23 @@ func TestEngine(t *testing.T) {
 }
 
 func TestGetRecordType(t *testing.T) {
-    tests := []struct {
-        input string
-        want  string
-    }{
-        {"1.1.1.1", "A"},
-        {"2606:4700:4700::1111", "AAAA"},
-        {"localhost:443", "CNAME"},
-        {"[2001:db8::1]:8080", "AAAA"},
-        {"example.com", "CNAME"},
-        {"", "CNAME"},
-    }
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"1.1.1.1", "A"},
+		{"2606:4700:4700::1111", "AAAA"},
+		{"localhost:443", "CNAME"},
+		{"[2001:db8::1]:8080", "AAAA"},
+		{"example.com", "CNAME"},
+		{"", "CNAME"},
+		// New test cases
+		{"192.168.1.1", "A"},
+		{"[2001:db8::1]", "AAAA"},
+		{"mixedcase.EXAMPLE.com", "CNAME"},
+		{"with.port:1234", "CNAME"},
+		{"invalid.ip:123:456", "CNAME"},
+	}
 
     for _, tt := range tests {
         t.Run(tt.input, func(t *testing.T) {
@@ -412,6 +498,27 @@ func TestExtractHostname(t *testing.T) {
 			name:     "extract host from ip with port",
 			input:    "192.168.1.1:443",
 			expected: "192.168.1.1",
+		},
+		// New test cases
+		{
+			name:     "ipv6 address with port",
+			input:    "[2001:db8::1]:8080",
+			expected: "2001:db8::1",
+		},
+		{
+			name:     "invalid hostport format",
+			input:    "invalid-host-port",
+			expected: "invalid-host-port",
+		},
+		{
+			name:     "empty string",
+			input:    "",
+			expected: "",
+		},
+		{
+			name:     "multiple colons",
+			input:    "host:port:extra",
+			expected: "host",
 		},
 	}
 

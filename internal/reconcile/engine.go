@@ -153,21 +153,44 @@ func (e *engine) generatePlan(ctx context.Context, changes state.StateChanges) (
 
 			host := extractHostFromUpstream(domain.Upstream)
 			recordType := getRecordType(host)
+			desiredData := host
+
+			// Check if existing records need to be updated
+			existingMainRecord, mainExists := recordMap[recordName]
+			existingTXTRecord, txtExists := managedTXTRecords[recordName]
+
+			// If existing records match desired state, skip creation
+			if mainExists && txtExists &&
+				existingMainRecord.Data == desiredData &&
+				existingTXTRecord.Data == txtIdentifier(e.cfg.Reconcile.Owner) {
+				continue
+			}
+
+			// If existing records don't match, plan to delete them first
+			if mainExists {
+				plan.Delete = append(plan.Delete, existingMainRecord)
+				e.metrics.IncDNSOperation("delete", zone, existingMainRecord.Type)
+			}
+			if txtExists {
+				plan.Delete = append(plan.Delete, existingTXTRecord)
+				e.metrics.IncDNSOperation("delete", zone, "TXT")
+			}
+
+			// Create new records
 			mainRecord := provider.Record{
 				Name: recordName,
 				Type: recordType,
-				Data: host,
+				Data: desiredData,
 				TTL:  3600, // TODO: This should be configurable
 				Zone: zone,
 			}
 			plan.Create = append(plan.Create, mainRecord)
 			e.metrics.IncDNSOperation("create", zone, recordType)
 
-			// Add managed TXT record
 			txtRecord := provider.Record{
 				Name: recordName,
 				Type: "TXT",
-                Data: txtIdentifier(e.cfg.Reconcile.Owner),
+				Data: txtIdentifier(e.cfg.Reconcile.Owner),
 				TTL:  3600,
 				Zone: zone,
 			}
@@ -296,7 +319,21 @@ func getRecordName(host, zone string) string {
 }
 
 func getRecordType(host string) string {
-	// First try parsing as pure IP
+	// Handle IPv6 in brackets with or without port
+	if strings.HasPrefix(host, "[") {
+		// Try to handle as host:port format first
+		if strings.Contains(host, "]:") {
+			if ipstr, _, err := net.SplitHostPort(host); err == nil {
+				host = ipstr
+			}
+		} else {
+			// Just brackets without port
+			host = strings.TrimPrefix(host, "[")
+			host = strings.TrimSuffix(host, "]")
+		}
+	}
+
+	// Then try parsing as pure IP
 	if ip := net.ParseIP(host); ip != nil {
 		if ip.To4() != nil {
 			return "A"
@@ -323,15 +360,21 @@ func extractHostFromUpstream(upstream string) string {
 		return ""
 	}
 
-	host, _, err := net.SplitHostPort(upstream)
-	if err != nil {
-		// If no port, use entire string
-		return upstream
+	// Handle IPv6 addresses with port first
+	if strings.HasPrefix(upstream, "[") && strings.Contains(upstream, "]:") {
+		if host, _, err := net.SplitHostPort(upstream); err == nil {
+			return strings.Trim(host, "[]")
+		}
 	}
-	return host
+
+	// Split on first colon to handle invalid formats like "host:port:extra"
+	if host, _, ok := strings.Cut(upstream, ":"); ok {
+		return host
+	}
+	return upstream
 }
 
 // TXT record used to identify managed records
 func txtIdentifier(owner string) string {
-	return fmt.Sprintf("\"heritage=caddy-dns-sync,caddy-dns-sync/owner=%s\"", owner)
+	return fmt.Sprintf("heritage=caddy-dns-sync,caddy-dns-sync/owner=%s", owner)
 }
