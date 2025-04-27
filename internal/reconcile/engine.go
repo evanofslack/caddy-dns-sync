@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/evanofslack/caddy-dns-sync/config"
-	"github.com/evanofslack/caddy-dns-sync/metrics"
-	"github.com/evanofslack/caddy-dns-sync/provider"
-	"github.com/evanofslack/caddy-dns-sync/source"
-	"github.com/evanofslack/caddy-dns-sync/state"
+	"github.com/evanofslack/caddy-dns-sync/internal/config"
+	"github.com/evanofslack/caddy-dns-sync/internal/metrics"
+	"github.com/evanofslack/caddy-dns-sync/internal/provider"
+	"github.com/evanofslack/caddy-dns-sync/internal/source"
+	"github.com/evanofslack/caddy-dns-sync/internal/state"
 )
 
 type Engine interface {

@@ -1,7 +1,7 @@
 package reconcile
 
 import (
-	"github.com/evanofslack/caddy-dns-sync/provider"
+	"github.com/evanofslack/caddy-dns-sync/internal/provider"
 )
 
 type Plan struct {

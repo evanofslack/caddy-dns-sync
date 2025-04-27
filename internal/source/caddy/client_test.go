@@ -10,8 +10,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/evanofslack/caddy-dns-sync/metrics"
-	"github.com/evanofslack/caddy-dns-sync/source"
+	"github.com/evanofslack/caddy-dns-sync/internal/metrics"
+	"github.com/evanofslack/caddy-dns-sync/internal/source"
 )
 
 // MockHttpClient implements the Httper interface for testing

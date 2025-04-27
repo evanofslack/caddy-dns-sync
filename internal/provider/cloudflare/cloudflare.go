@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/evanofslack/caddy-dns-sync/config"
-	"github.com/evanofslack/caddy-dns-sync/metrics"
-	"github.com/evanofslack/caddy-dns-sync/provider"
+	"github.com/evanofslack/caddy-dns-sync/internal/config"
+	"github.com/evanofslack/caddy-dns-sync/internal/metrics"
+	"github.com/evanofslack/caddy-dns-sync/internal/provider"
 	"github.com/libdns/cloudflare"
 	"github.com/libdns/libdns"
 )

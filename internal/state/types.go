@@ -1,7 +1,7 @@
 package state
 
 import (
-	"github.com/evanofslack/caddy-dns-sync/source"
+	"github.com/evanofslack/caddy-dns-sync/internal/source"
 )
 
 type State struct {

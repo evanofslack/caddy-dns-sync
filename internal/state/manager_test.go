@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/dgraph-io/badger/v3"
-	"github.com/evanofslack/caddy-dns-sync/metrics"
+	"github.com/evanofslack/caddy-dns-sync/internal/metrics"
 )
 
 func TestBadgerManager(t *testing.T) {

@@ -10,13 +10,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/evanofslack/caddy-dns-sync/config"
-	"github.com/evanofslack/caddy-dns-sync/logger"
-	"github.com/evanofslack/caddy-dns-sync/metrics"
-	"github.com/evanofslack/caddy-dns-sync/provider/cloudflare"
-	"github.com/evanofslack/caddy-dns-sync/reconcile"
-	"github.com/evanofslack/caddy-dns-sync/source/caddy"
-	"github.com/evanofslack/caddy-dns-sync/state"
+	"github.com/evanofslack/caddy-dns-sync/internal/config"
+	"github.com/evanofslack/caddy-dns-sync/internal/logger"
+	"github.com/evanofslack/caddy-dns-sync/internal/metrics"
+	"github.com/evanofslack/caddy-dns-sync/internal/provider/cloudflare"
+	"github.com/evanofslack/caddy-dns-sync/internal/reconcile"
+	"github.com/evanofslack/caddy-dns-sync/internal/source/caddy"
+	"github.com/evanofslack/caddy-dns-sync/internal/state"
 )
 
 func main() {

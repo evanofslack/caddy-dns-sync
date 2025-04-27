@@ -7,8 +7,8 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/evanofslack/caddy-dns-sync/metrics"
-	"github.com/evanofslack/caddy-dns-sync/source"
+	"github.com/evanofslack/caddy-dns-sync/internal/metrics"
+	"github.com/evanofslack/caddy-dns-sync/internal/source"
 )
 
 type Client interface {
