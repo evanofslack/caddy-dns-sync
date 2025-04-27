@@ -47,7 +47,9 @@ func (c *client) Domains(ctx context.Context) ([]source.DomainConfig, error) {
 }
 
 func (c *client) getConfiguration(ctx context.Context) (Config, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", c.adminURL+"/config/", nil)
+	endpoint := fmt.Sprintf("%s/config/", c.adminURL)
+	slog.Debug("Get caddy config", "endpoint", endpoint)
+	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
 	if err != nil {
 		c.metrics.IncCaddyRequest(false, 0)
 		return Config{}, err
@@ -74,6 +76,7 @@ func (c *client) getConfiguration(ctx context.Context) (Config, error) {
 }
 
 func (c *client) extractDomains(config Config) ([]source.DomainConfig, error) {
+	slog.Debug("Parse caddy config")
 	domains := []source.DomainConfig{}
 	entries := 0
 	for _, server := range config.Apps.HTTP.Servers {
@@ -99,7 +102,7 @@ func (c *client) extractDomains(config Config) ([]source.DomainConfig, error) {
 
 func (c *client) processHandlers(parentHost string, handlers []Handler, domains *[]source.DomainConfig) {
 	for _, handler := range handlers {
-		slog.Default().Debug("Processing handler", "handler", handler.Handler, "upstreams", handler.Upstreams)
+		slog.Debug("Processing handler", "handler", handler.Handler, "upstreams", handler.Upstreams)
 
 		// Track current host context through nested routes
 		currentHost := parentHost
@@ -117,7 +120,7 @@ func (c *client) processHandlers(parentHost string, handlers []Handler, domains 
 
 		if handler.Handler == "reverse_proxy" && len(handler.Upstreams) > 0 {
 			upstream := handler.Upstreams[0].Dial
-            slog.Info("Added domain", "host", currentHost, "upstream", upstream)
+			slog.Info("Added domain", "host", currentHost, "upstream", upstream)
 			*domains = append(*domains, source.DomainConfig{
 				Host:     currentHost, // Use most specific host context
 				Upstream: handler.Upstreams[0].Dial,
