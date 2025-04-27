@@ -166,7 +166,7 @@ func (e *engine) generatePlan(ctx context.Context, changes state.StateChanges) (
 			txtRecord := provider.Record{
 				Name: recordName,
 				Type: "TXT",
-                Data: createTxtData(e.cfg.Reconcile.Owner),
+                Data: txtIdentifier(e.cfg.Reconcile.Owner),
 				TTL:  3600,
 				Zone: zone,
 			}
@@ -201,8 +201,8 @@ func (e *engine) generatePlan(ctx context.Context, changes state.StateChanges) (
 
 			// Delete associated TXT record if managed
 			if txtRecord, exists := managedTXTRecords[recordName]; exists {
+                // txtRecord.Data = txtIdentifier(e.cfg.Reconcile.Owner) // cf check
 			    // Set data to empty to match all data, we already know its correct
-			    txtRecord.Data = ""
 				plan.Delete = append(plan.Delete, txtRecord)
 				e.metrics.IncDNSOperation("delete", zone, "TXT")
 			}
@@ -321,6 +321,7 @@ func extractHostFromUpstream(upstream string) string {
 	return host
 }
 
-func createTxtData(owner string) string {
+// TXT record used to identify managed records
+func txtIdentifier(owner string) string {
 	return fmt.Sprintf("\"heritage=caddy-dns-sync,caddy-dns-sync/owner=%s\"", owner)
 }

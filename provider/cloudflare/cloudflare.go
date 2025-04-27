@@ -102,11 +102,13 @@ func (p *CloudflareProvider) DeleteRecord(ctx context.Context, zone string, reco
 	}
 	recs := []libdns.Record{r}
 
-	if _, err := p.cf.DeleteRecords(ctx, zone, recs); err != nil {
+	deleted, err := p.cf.DeleteRecords(ctx, zone, recs)
+	if err != nil {
 		p.metrics.IncDNSRequest("delete", zone, false)
 		return err
 	}
 
+	slog.Debug("Deleted DNS record", "zone", zone, "name", record.Name, "type", record.Type, "returned", deleted)
 	p.metrics.IncDNSRequest("delete", zone, true)
 	return nil
 }
