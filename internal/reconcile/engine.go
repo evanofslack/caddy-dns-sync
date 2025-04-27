@@ -128,12 +128,13 @@ func (e *engine) generatePlan(ctx context.Context, changes state.StateChanges) (
 		managedTXTRecords := make(map[string]provider.Record)
 		for _, r := range records {
 			slog.Debug("Got record", "name", r.Name, "type", r.Type, "data", r.Data)
+			recordName := getRecordName(r.Name, zone)
 			switch r.Type {
 			case "A", "CNAME":
-				recordMap[r.Name] = r
+				recordMap[recordName] = r
 			case "TXT":
 				if strings.Contains(r.Data, "heritage=caddy-dns-sync") && strings.Contains(r.Data, "caddy-dns-sync/owner="+e.cfg.Reconcile.Owner) {
-					managedTXTRecords[r.Name] = r
+					managedTXTRecords[recordName] = r
 				}
 			}
 		}
@@ -192,6 +193,7 @@ func (e *engine) generatePlan(ctx context.Context, changes state.StateChanges) (
 				// But only delete if we manage it, confirmed by checking existance of txt record
 				if _, txtExists := managedTXTRecords[recordName]; !txtExists {
 					slog.Warn("Skipping delete record without associated owned TXT record", "name", recordName, "zone", zone, "record_type", recordType)
+					slog.Debug("TXT record check", "recordName", recordName, "exists", txtExists, "managedRecords", managedTXTRecords)
 					e.metrics.IncDNSOperation("skip", zone, recordType)
 					continue
 				}
@@ -213,6 +215,7 @@ func (e *engine) generatePlan(ctx context.Context, changes state.StateChanges) (
 
 func (e *engine) executePlan(ctx context.Context, plan Plan, newState state.State) (Results, error) {
 	results := Results{}
+	slog.Info("Execution mode", "dryRun", e.dryRun)
 
 	if e.dryRun {
 		slog.Info("Dry run mode - would create records", "count", len(plan.Create))
@@ -279,14 +282,17 @@ func (e *engine) isProtected(name string) bool {
 
 func belongsToZone(host, zone string) bool {
 	// Match exact zone or subdomains with dot separator
+	slog.Debug("Zone check", "host", host, "zone", zone, "matches", host == zone || strings.HasSuffix(host, "."+zone))
 	return host == zone || strings.HasSuffix(host, "."+zone)
 }
 
 func getRecordName(host, zone string) string {
+	name := strings.TrimSuffix(host, "."+zone)
+	slog.Debug("Record name extraction", "host", host, "zone", zone, "result", name)
 	if host == zone {
 		return "@"
 	}
-	return strings.TrimSuffix(host, "."+zone)
+	return name
 }
 
 func getRecordType(host string) string {
