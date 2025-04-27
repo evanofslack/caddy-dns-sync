@@ -369,6 +369,29 @@ func TestEngine(t *testing.T) {
 	}
 }
 
+func TestGetRecordType(t *testing.T) {
+    tests := []struct {
+        input string
+        want  string
+    }{
+        {"1.1.1.1", "A"},
+        {"2606:4700:4700::1111", "AAAA"},
+        {"localhost:443", "CNAME"},
+        {"[2001:db8::1]:8080", "AAAA"},
+        {"example.com", "CNAME"},
+        {"", "CNAME"},
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.input, func(t *testing.T) {
+            got := getRecordType(tt.input)
+            if got != tt.want {
+                t.Errorf("getRecordType(%q) = %q, want %q", tt.input, got, tt.want)
+            }
+        })
+    }
+}
+
 func TestExtractHostname(t *testing.T) {
 	tests := []struct {
 		name     string

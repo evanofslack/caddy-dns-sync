@@ -290,21 +290,25 @@ func getRecordName(host, zone string) string {
 }
 
 func getRecordType(host string) string {
+	// First try parsing as pure IP
 	if ip := net.ParseIP(host); ip != nil {
 		if ip.To4() != nil {
-			return "AAAA"
-		}
-		return "A"
-	}
-
-	if ipstr, _, err := net.SplitHostPort(host); err != nil {
-		if ip := net.ParseIP(ipstr); ip != nil {
-			if ip.To4() != nil {
-				return "AAAA"
-			}
 			return "A"
 		}
+		return "AAAA"
 	}
+
+	// Then try parsing as host:port format
+	if ipstr, _, err := net.SplitHostPort(host); err == nil {
+		if ip := net.ParseIP(ipstr); ip != nil {
+			if ip.To4() != nil {
+				return "A"
+			}
+			return "AAAA"
+		}
+	}
+	
+	// Fallback to CNAME
 	return "CNAME"
 }
 
