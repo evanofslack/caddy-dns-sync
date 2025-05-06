@@ -4,12 +4,6 @@ Automatically synchronize reverse-proxy configurations from Caddy server with Cl
 
 ## Getting Started
 
-1. **Set up environment variables**:
-
-Copy `.env.example` to `.env` and fill in cloudflare api token
-
-2. **Start container**:
-
 Can run from a prebuilt container: `evanofslack/caddy-dns-sync:latest`
 
 ```yaml
