@@ -1,68 +1,35 @@
-# Caddy DNS Synchronizer
+# caddy-dns-sync
 
-Automatically synchronize reverse-proxy configurations from Caddy server with Cloudflare DNS records.
+Automatically synchronize reverse-proxy configurations from Caddy server with Cloudflare DNS records
 
-## Development
-
-### Prerequisites
-
-- Docker and Docker Compose
-- Cloudflare API token with DNS read/edit permissions
-
-### Quick Start
+## Getting Started
 
 1. **Set up environment variables**:
 
-   Export the Cloudflare API token in your environment:
+Copy `.env.example` to `.env` and fill in cloudflare api token
 
-   ```bash
-   export CLOUDFLARE_API_TOKEN=your_cloudflare_api_token
-   ```
+2. **Start container**:
 
-2. **Start the development environment**:
+Can run from a prebuilt container: `evanofslack/caddy-dns-sync:latest`
 
-   ```bash
-   docker-compose -f dev/docker-compose.yaml up --build
-   ```
+```yaml
 
-3. **Verify services are running**:
+services:
+    caddy-dns-sync:
+    image: evanofslack/caddy-dns-sync
+    container_name: caddy-dns-sync
+    ports: - "8080:8080" # only exposes metrics
+    environment: - CADDY_DNS_SYNC_CLOUDFLARE_TOKEN=${CLOUDFLARE_TOKEN} - CADDY_DNS_SYNC_CADDY_URL=<http://caddy:2019> # caddy adin endpoint - CADDY_DNS_SYNC_ZONES=domain.com,other.com # list of zones to sync - CADDY_DNS_SYNC_DRYRUN=false # only make dns requests if false - CADDY_DNS_SYNC_PROTECTED_RECORDS=protect.domain.com # list of domains not to sync
+    volumes: - caddy_dns_sync_state:/data
 
-   Check Caddy's admin API:
-
-   ```bash
-   curl http://localhost:2019/config/
-   ```
-
-   The sync service logs should show polling activity and dry-run operations.
-
-### Testing DNS Synchronization
-
-1. **Add a test domain to Caddy**:
-
-   ```bash
-   curl -X POST http://localhost:2019/load \
-     -H "Content-Type: text/caddyfile" \
-     -d 'newdomain.example.com { reverse_proxy localhost:8080 }'
-   ```
-
-2. **Watch the sync service logs**:
-
-   You should see the service detect the new domain and perform a dry-run of DNS operations.
-
-3. **Enable live mode**:
-
-   To apply actual DNS changes, edit `dev/config.yaml` and set `dryRun: false`, then restart the service.
-
-### Cleanup
-
-```bash
-docker-compose -f dev/docker-compose.yaml down -v
+volumes:
+    caddy_dns_sync_state:
 ```
 
-## Configuration
+## Development
 
-See `dev/config.yaml` for configuration options. Key settings:
+Can run caddy and caddy-dns-sync built from local code side by side
 
-- `syncInterval`: How often to check for changes
-- `dns.zones`: DNS zones to manage
-- `reconcile.protectedRecords`: Records that will never be modified
+```bash
+docker-compose -f dev/docker-compose.yaml up --build
+```
